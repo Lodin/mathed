@@ -1,4 +1,48 @@
-﻿module mathed.types.matrix;
+﻿// Written in the D programming language
+/**
+ * Implementation of mathematic matrix. 
+ * 
+ * It is created at compile time with main settings: `Type` - type of inner
+ * data, `Lines` - quantity of matrix lines, and `Cols` - quantity of matrix
+ * columns. Then, in runtime, matrix is initialized by numbers.
+ * 
+ * Examples:
+ * --------------------
+ * auto m = Matrix!(int, 3, 3)
+ * (
+ *      3, -1, 6,
+ *      2,  1, 5,
+ *     -3,  1, 0
+ * );
+ * --------------------
+ * 
+ * Created structure can be treated as a mathematic matrix. Matrix could be added to
+ * another matrix, it could be multiplied by number or another matrix, and so
+ * on.
+ * 
+ * Examples:
+ * --------------------
+ * auto x = m + m; // x =  6, -2, 12,
+ *                 //      4,  2, 10,
+ *                 //     -6,  2,  0
+ * 
+ * auto y = m * 2  // y =  6, -2, 12,
+ *                 //      4,  2, 10,
+ *                 //     -6,  2,  0
+ * 
+ * auto n = Matrix!(int, 3, 2)
+ * (
+ *     3, 4,
+ *     1, 0,
+ *     5, 2
+ * );
+ * 
+ * auto z = m * n  // z = 38,  24,
+ *                 //     32,  18,
+ *                 //     -8, -12
+ * --------------------
+ */
+module mathed.types.matrix;
 
 private
 {
@@ -16,47 +60,7 @@ alias Matrix!(int, 3, 3) Matrix3i;
 alias Matrix!(int, 4, 4) Matrix4i;
 
 /**
- * Structure implements mathematic meaning of matrix. 
- * 
- * It is constructed at compile time with main settings: `Type` - type of inner
- * data, `Lines` - quantity of matrix lines, and `Cols` - quantity of matrix
- * columns. Then, in runtime, matrix is initialized by numbers.
- * 
- * Examples:
- * --------------------
- * auto m = Matrix!(int, 3, 3)
- * (
- *      3, -1, 6,
- *      2,  1, 5,
- *     -3,  1, 0
- * );
- * --------------------
- * 
- * New structure can be treated as a mathematic matrix. Matrix could be added to
- * another matrix, it could be multiplied by number or another matrix, and so
- * on.
- * 
- * Examples:
- * --------------------
- * auto x = m + m; // x =  6, -2, 12,
-                   //      4,  2, 10,
-                   //     -6,  2,  0
- * 
- * auto y = m * 2  // y =  6, -2, 12,
-                   //      4,  2, 10,
-                   //     -6,  2,  0
- * 
- * auto n = Matrix!(int, 3, 2)
- * (
- *     3, 4,
- *     1, 0,
- *     5, 2
- * );
- * 
- * auto z = m * n  // z = 38,  24,
- *                 //     32,  18,
- *                 //     -8, -12
- * --------------------
+ * Main matrix interface
  */
 struct Matrix (Type, size_t Lines, size_t Cols)
 {

@@ -1,32 +1,7 @@
-﻿module mathed.types.vector;
-
-private 
-{
-    import mathed.types.matrix : Matrix, isMatrix, Matrix3i;
-    import std.traits : hasMember, isNumeric, isBoolean, isSomeString;
-    import std.array : appender, split;
-    import std.typetuple : TypeTuple;
-    import std.conv : to;
-    import std.string : indexOf, strip, format;
-}
-
-alias Vector!(float, 2) Vector2f;
-alias Vector!(float, 3) Vector3f;
-alias Vector!(float, 4) Vector4f;
-
-alias Vector!(int, 2) Vector2i;
-alias Vector!(int, 3) Vector3i;
-alias Vector!(int, 4) Vector4i;
-
-alias Vector!(int, 2, "xy")  Planei;
-alias Vector!(int, 3, "xyz") Coordi;
-
-alias Vector!(float, 2, "xy")   Planef;
-alias Vector!(float, 3, "xyz")  Coordf;
-
+﻿// Written in the D programming language
 /**
- * Structure implements vector in meaning as a matrix with one line or column,
- * and as matrix it follows the rules of actions with matrix. 
+ * Implementation of vector as a matrix with one line or column, and as matrix 
+ * it follows the rules of actions with matrix. 
  * 
  * Vector has compile time settings: `Type`, `Elements` - quantity of vector
  * elements, `Accessors` - line of vector accessor methods (by default - empty
@@ -70,6 +45,36 @@ alias Vector!(float, 3, "xyz")  Coordf;
  * --------------------
  * 
  * If accessors is not needed, its' string should be empty.
+ */
+
+module mathed.types.vector;
+
+private 
+{
+    import mathed.types.matrix : Matrix, isMatrix, Matrix3i;
+    import std.traits : hasMember, isNumeric, isBoolean, isSomeString;
+    import std.array : appender, split;
+    import std.typetuple : TypeTuple;
+    import std.conv : to;
+    import std.string : indexOf, strip, format;
+}
+
+alias Vector!(float, 2) Vector2f;
+alias Vector!(float, 3) Vector3f;
+alias Vector!(float, 4) Vector4f;
+
+alias Vector!(int, 2) Vector2i;
+alias Vector!(int, 3) Vector3i;
+alias Vector!(int, 4) Vector4i;
+
+alias Vector!(int, 2, "xy")  Planei;
+alias Vector!(int, 3, "xyz") Coordi;
+
+alias Vector!(float, 2, "xy")   Planef;
+alias Vector!(float, 3, "xyz")  Coordf;
+
+/**
+ * Main vector interface
  */
 struct Vector (Type, size_t Elements, string Accessors = "", 
                string VectorType = "horizontal")
