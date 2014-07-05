@@ -174,6 +174,54 @@ struct Matrix (Type, size_t Lines, size_t Cols)
         assert (m[2][0] == -3);
     }
 
+    int opApply (int delegate (size_t, size_t, Type) foreach_)
+    {
+        int result;
+        foreach (size_t i, ref line; _this)
+        {
+            foreach (size_t j, ref col; line)
+            {
+                result = foreach_ (i, j, col);
+
+                if (result) break;
+            }
+        }
+
+        return result;
+    }
+
+    unittest
+    {
+        auto m = Matrix3i
+        (
+             3, -1, 6,
+             2,  1, 5,
+            -3,  1, 0
+        );
+        
+        size_t index;
+        foreach (i, ref element; m)
+        {
+            if (element == 5)
+            {
+                index = i;
+                break;
+            }
+        }
+        assert (index == 5);
+        
+        size_t line, col;
+        foreach (i, j, ref element; m)
+        {
+            if (element == 5)
+            {
+                line = i;
+                col = j;
+            }
+        }
+        assert (line == 1 && col == 2);
+    }
+
     /**
      * Method implements matrix addition. Adding matrix should be equal by type,
      * lines and colums quantity.
@@ -184,22 +232,21 @@ struct Matrix (Type, size_t Lines, size_t Cols)
      * Returns: result matrix.
      */
     nothrow @safe auto opBinary (string op)(Self summand)
-        if (op == "+")
+        if (op == "+" || op == "-")
     {
-        Type[Lines * Cols] newMatrix;
-        
-        auto index = 0;
+        Type[Cols * Lines] newMatrix;
+
+        size_t index;
         foreach (i; 0..Lines)
         {
             foreach (j; 0..Cols)
             {
-                newMatrix[index] = _this[i][j] + summand[i][j];
+                mixin ("newMatrix[index] = _this[i][j] " ~ op ~ " summand[i][j];");
                 index++;
             }
         }
         
-        
-        return Self (newMatrix);
+        return newMatrix;
     }
 
     unittest
