@@ -172,7 +172,7 @@ struct Vector (Type, size_t Elements, string Accessors = "",
      * Params:
      *        linesIndex  =      value index.
      */
-    nothrow @safe auto opIndex (size_t linesIndex)
+    nothrow @safe ref auto opIndex (size_t linesIndex)
     {
         static if (VectorType == "vertical")
             return _this[linesIndex][0];
@@ -195,9 +195,12 @@ struct Vector (Type, size_t Elements, string Accessors = "",
      * 
      * Returns: result vector.
      */
-    nothrow @safe auto opBinary (string op)(Self summand) if (op == "+")
+    nothrow @safe auto opBinary (string op)(Self summand) 
+        if (op == "+" || op == "-")
     {
-        return resultByType (_this + summand._this);
+        Self result;
+        mixin ("result._this = _this " ~ op ~" summand._this;");
+        return result;
     }
 
     unittest
@@ -216,9 +219,11 @@ struct Vector (Type, size_t Elements, string Accessors = "",
      * Returns: result vector;
      */
     nothrow @safe auto opBinary (string op, T)(T num) 
-            if (op == "*" && isNumeric!T)
+        if ((op == "*" || op == "/") && isNumeric!T)
     {
-        return resultByType (_this * num);
+        Self result;
+        mixin ("result._this = _this " ~ op ~ " num;");
+        return result;
     }
 
     unittest
@@ -241,7 +246,7 @@ struct Vector (Type, size_t Elements, string Accessors = "",
      * Returns: result number or matrix.
      */
     nothrow @safe auto opBinary (string op, T)(T factor)
-        if (op == "*" && isVector!T)
+        if ((op == "*" || op == "/") && isVector!T)
     in 
     {
         static if (VectorType == "vertical")
@@ -252,9 +257,9 @@ struct Vector (Type, size_t Elements, string Accessors = "",
     body
     {
         static if (VectorType == "vertical")
-            return _this * factor._this;
+            return mixin ("_this " ~ op ~ " factor._this;");
         else
-            return (_this * factor._this)[0][0];
+            return mixin ("(_this " ~ op ~ " factor._this)[0][0];");
     }
 
     unittest
@@ -274,22 +279,6 @@ struct Vector (Type, size_t Elements, string Accessors = "",
         );
 
         assert (v2 * w2 == equalMatrix);
-    }
-
-    // Method to create vector from resulting matrix in dependence of it's
-    // VectorType.
-    private auto resultByType (InnerMatrix result)
-    {
-        static if (VectorType == "vertical")
-        {
-            Type[Elements] data;
-            foreach (i; 0..Elements)
-                data[i] = result[i][0];
-            
-            return Self (data);
-        }
-        else
-            return Self (result[0]);
     }
 }
 

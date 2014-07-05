@@ -70,7 +70,7 @@ struct Matrix (Type, size_t Lines, size_t Cols)
     private  Type[Cols][Lines] _this;
 
     // Methods return matrix column and line quantity
-    pure nothrow @safe static @property 
+    static @property pure nothrow @safe 
     {
         auto cols () { return Cols; }
         auto lines () { return Lines; }
@@ -95,6 +95,7 @@ struct Matrix (Type, size_t Lines, size_t Cols)
      *        values  =      array of new matrix values.
      */
     nothrow @safe this (Type[Lines * Cols] values...) { set (values); }
+    nothrow @safe this (Type[Cols][Lines] values) { _this = values; }
 
     /**
      * Method sets all matrix values in one action.
@@ -104,16 +105,18 @@ struct Matrix (Type, size_t Lines, size_t Cols)
      */
     nothrow @safe void set (Type[Lines * Cols] values...)
     {
-        size_t index = 0;
-        foreach (i; 0..Lines)
+        size_t index;
+        foreach (i, ref line; _this)
         {
-            foreach (j; 0..Cols)
+            foreach (j, ref col; line)
             {
-                _this[i][j] = values[index];
+                col = values[index];
                 index++;
             }
         }
     }
+
+    nothrow @safe void set (Type[Cols][Lines] values) { _this = values; }
 
     unittest
     {
@@ -234,17 +237,11 @@ struct Matrix (Type, size_t Lines, size_t Cols)
     nothrow @safe auto opBinary (string op)(Self summand)
         if (op == "+" || op == "-")
     {
-        Type[Cols * Lines] newMatrix;
+        Self newMatrix;
 
-        size_t index;
-        foreach (i; 0..Lines)
-        {
-            foreach (j; 0..Cols)
-            {
-                mixin ("newMatrix[index] = _this[i][j] " ~ op ~ " summand[i][j];");
-                index++;
-            }
-        }
+        foreach (i, ref line; newMatrix._this)
+            foreach (j, ref col; line)
+                mixin ("col = _this[i][j] " ~ op ~ " summand._this[i][j];");
         
         return newMatrix;
     }
@@ -279,21 +276,15 @@ struct Matrix (Type, size_t Lines, size_t Cols)
      * Returns: result matrix;
      */
     nothrow @safe auto opBinary (string op, T)(T num)
-        if (op == "*" && isNumeric!(T))
+        if ((op == "*" || op == "/") && isNumeric!T)
     {
-        Type[Lines * Cols] newMatrix;
+        Self newMatrix;
         
-        auto index = 0;
-        foreach (i; 0..Lines)
-        {
-            foreach (j; 0..Cols)
-            {
-                newMatrix[index] = _this[i][j] * num;
-                index++;
-            }
-        }
+        foreach (i, ref line; newMatrix._this)
+            foreach (j, ref col; line)
+                mixin ("col = _this[i][j] " ~ op ~ " num;");
         
-        return Self (newMatrix);
+        return newMatrix;
     }
 
     unittest
@@ -328,27 +319,18 @@ struct Matrix (Type, size_t Lines, size_t Cols)
      * Returns: result matrix;
      */
     nothrow @safe auto opBinary (string op, T)(T factor)
-        if (op == "*" && isMatrix!(T))
+        if ((op == "*" || op == "/") && isMatrix!T)
     in { static assert (Cols == T.lines); }
     body
     {
-        Type[Lines * T.cols] newMatrix;
-        
-        auto index = 0;
-        foreach (i; 0..Lines)
-        {
-            foreach (j; 0..T.cols)
-            {
-                Type result = 0;
+        Matrix!(Type, Lines, T.cols) newMatrix;
+
+        foreach (i, ref line; newMatrix._this)
+            foreach (j, ref col; line)
                 foreach (k; 0..Cols)
-                    result += _this[i][k] * factor[k][j];
-                
-                newMatrix[index] = result;
-                index++;
-            }
-        }
+                    mixin ("col += _this[i][k] " ~ op ~ " factor._this[k][j];");
         
-        return Matrix!(Type, Lines, factor.cols)(newMatrix);
+        return newMatrix;
     }
 
     unittest
