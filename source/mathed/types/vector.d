@@ -1,62 +1,56 @@
 ﻿// Written in the D programming language
 /**
- * Implementation of vector as a matrix with one line or column, and as matrix 
- * it follows the rules of actions with matrix. 
+ * Implementation of vector as a list of values.
+ * Features:
+ * $(OL
+ *      $(LI All vector actions is checked at compile time)
+ *      $(LI Vector contains only it's data, and nothing additional)
+ *      $(LI Almost all vector actions is `nothrow` and `@safe`)
+ *      $(LI Vector can have one- and multiletter accessors)
+ * )
  * 
- * Vector has compile time settings: `Type`, `Elements` - quantity of vector
- * elements, `Accessors` - line of vector accessor methods (by default - empty
- * string), and `VectorType` - horizontal or vertical variant of vector. By
- * default it always is `horizontal` vector.
+ * Usage:
+ * Create vector as in documentation below and treat it like a simple array (if
+ * you want to take some data from vector or put it in) or number (if you need
+ * to do some mathematical actions with vector).
  * 
- * Examples:
- * --------------------
- * auto v = Vector!(int, 3)(3, -1, 6);
- * --------------------
+ * Vector can have accessor - a named property method returning one of vector
+ * element. Accessor can be two types:
+ * $(OL
+ *      $(LI One-letter accessor. To create vector with this type you should
+ *           make vector like that:
  * 
- * New structure can be treated as a simple matrix. It can be added to another
- * vector, or multiplied by number or another vector. 
+ *           auto vec = Vector!(int, 2, "xy")(10, 20);
  * 
- * Examples:
- * --------------------
- * auto x = v + v; // x = 6, -2, 12
+ *           Then you can call vector accessor:
  * 
- * auto y = v * 5  // y = 15, -5, 30
+ *           assert (vec.x == 10);
+ *      )
+ *      $(LI Multiletter accessor. To create vector with this type you should
+ *           make vector like that:
+ *           
+ *           auto vec = Vector!(int, 2, "col|row")(10, 20);
+ *           
+ *           Accessor delimiter in the accessors string can be only "|" or ",".
+ *           Then you can call vector accessor:
  * 
- * auto w = Vector!(int, 2)(3, 4);
+ *           assert (vec.col == 10);
+ *      )
+ * )
  * 
- * auto z = v * w  // z = 38,  24,
- *                 //     32,  18,
- *                 //     -8, -12
- * --------------------
- * 
- * Additionally, vector can have accessor methods to access it's elements.
- * Accessors could be two types:
- * 1) One-letter accessor. It can be defined in one string:
- * --------------------
- * auto m = Vector!(int, 2, "xy")(10, 20);
- * assert (m.x == 10);
- * --------------------
- * 
- * 2) Multiletter accessor. It should be defined in one string but splitted by
- * delimiters. Delimiters should be only `|` (vertical bar) or `,` (comma).
- * --------------------
- * auto m = Vector!(int, 2, "col|row")(10, 20);
- * assert (m.col == 10);
- * --------------------
- * 
- * If accessors is not needed, its' string should be empty.
+ * Vector also has VectorType - a string that defines vector orientation:
+ * `horizontal` or `vertical`. It is needed only when vector is converted to
+ * matrix and by default is `horizontal`.
  */
-
 module mathed.types.vector;
 
 private 
 {
-    import mathed.types.matrix : Matrix, isMatrix, Matrix3i;
-    import std.traits : hasMember, isNumeric, isBoolean, isSomeString;
+    import mathed.types.matrix : Matrix, isMatrix, Matrix1i, Matrix3i;
+    import std.traits : isNumeric;
     import std.array : appender, split;
-    import std.typetuple : TypeTuple;
     import std.conv : to;
-    import std.string : indexOf, strip, format;
+    import std.string : indexOf, strip;
 }
 
 alias Vector!(float, 2) Vector2f;
@@ -70,94 +64,82 @@ alias Vector!(int, 4) Vector4i;
 alias Vector!(int, 2, "xy")  Planei;
 alias Vector!(int, 3, "xyz") Coordi;
 
-alias Vector!(float, 2, "xy")   Planef;
-alias Vector!(float, 3, "xyz")  Coordf;
+alias Vector!(float, 2, "xy")  Planef;
+alias Vector!(float, 3, "xyz") Coordf;
 
 /**
- * Main vector interface
+ * Main vector interface.
  */
-struct Vector (Type, size_t Elements, string Accessors = "", 
+struct Vector (Type, size_t Size, string Accessors = "", 
                string VectorType = "horizontal")
 {
-    static assert (VectorType == "horizontal" || VectorType == "vertical",
-                   "Vector should be `horizontal` or `vertical`");
-
-    static assert (CountAccessors (Accessors, Elements) == 0 
-                   || CountAccessors (Accessors, Elements) == Elements,
+    static assert (CountAccessors (Accessors, Size) == 0 
+                   || CountAccessors (Accessors, Size) == Size,
                    "Quantity of attribute accessors should be equal to vector "
                    ~ "size or be empty string, not " 
                    ~ CountAccessors (Accessors).to!string ());
 
-    static if (VectorType == "vertical")
-        alias Matrix!(Type, Elements, 1) InnerMatrix;
-    else
-        alias Matrix!(Type, 1, Elements) InnerMatrix;
+    static assert (VectorType == "horizontal" || VectorType == "vertical",
+                   "VectorType should be `horizontal` or `vertical`");
 
-    alias Vector!(Type, Elements, Accessors, VectorType) Self;
+    alias Vector!(Type, Size, Accessors) Self;
 
-    // Vector inner matrix which contains all vector data
-    private InnerMatrix _this;
+    /*
+     * Vector core array.
+     */
+    private Type[Size] _this;
 
-    // Methods return vector column and line quantity
-    nothrow @safe static @property
-    {
-        auto cols () { return _this.cols; }
-        auto lines () { return _this.lines; }
-    }
+    /**
+     * Returns vector size (quantity of it's elements).
+     */
+    pure nothrow @safe static @property auto size () { return Size; }
 
     unittest
     {
         auto v = Vector3i (1, 2, 3);
-
-        assert (v.cols == 3);
-        assert (v.lines == 1);
+        assert (v.size == 3);
     }
 
     /**
-     * Vector constructor.
-     * 
-     * Params:
-     *        values  =      array of new vector values.
+     * Vector default constructor. 
      */
-    nothrow @safe this (Type[Elements] values...) { set (values); }
+    nothrow @safe this (Type[Size] values...) { _this = values; }
 
-    // Vector variable accessor methods
     static if (Accessors != "")
-        mixin (AttrAccessor (Accessors, Elements, VectorType));
+        mixin (AttrAccessor (Accessors, Size));
 
+    ///
     unittest
     {
+        // Creating a vector with accessors
         auto v = Vector!(int, 3, "xyz")(1, 2, 3);
+
+        // Testing accessor methods.
         assert (v.x == 1);
         assert (v.y == 2);
         assert (v.z == 3);
     }
 
     /**
-     * Method sets all vector values in one action.
-     * 
-     * Params:
-     *        values  =      array of setting vector values.
+     * Sets all vector values in one action.
      */
-    nothrow @safe void set (Type[Elements] values...) { _this = InnerMatrix (values); }
+    nothrow @safe void set (Type[Size] values...) { _this = values; }
 
+    ///
     unittest
     {
+        // Creating vector
         auto v = Vector3i (1, 2, 3);
+
+        // Change data in one action
         v.set (3, 2, 1);
         assert (v[0] == 3 && v[1] == 2 && v[2] == 1);
     }
 
     /**
-     * Method stringifies vector data.
+     * Stringifies vector.
      */
-    string toString ()
-    {
-        static if (VectorType == "vertical")
-            return _this.to!string ();
-        else
-            return _this[0].to!string ();
-    }
+    string toString () { return _this.to!string (); }
 
     unittest
     {
@@ -167,17 +149,11 @@ struct Vector (Type, size_t Elements, string Accessors = "",
     }
 
     /**
-     * Method returns vector value by it's index
-     * 
-     * Params:
-     *        linesIndex  =      value index.
+     * Gives vector element.
      */
     nothrow @safe ref auto opIndex (size_t linesIndex)
     {
-        static if (VectorType == "vertical")
-            return _this[linesIndex][0];
-        else
-            return _this[0][linesIndex];
+        return _this[linesIndex];
     }
 
     unittest
@@ -187,19 +163,32 @@ struct Vector (Type, size_t Elements, string Accessors = "",
     }
 
     /**
-     * Method implements vector addition. Adding vector should be equal by type
-     * and size.
-     * 
-     * Params:
-     *        summand  =      adding vector.
-     * 
-     * Returns: result vector.
+     * Iterates vector.
      */
+    int opApply (int delegate (size_t, Type) foreach_)
+    {
+        int result;
+        
+        foreach (size_t index, ref element; _this)
+        {
+            result = foreach_ (index, element);
+            if (result) break;
+        }
+        
+        return result;
+    }
+
+    /**
+     * Processes vector addition and subtraction.
+     */ 
     nothrow @safe auto opBinary (string op)(Self summand) 
         if (op == "+" || op == "-")
     {
         Self result;
-        mixin ("result._this = _this " ~ op ~" summand._this;");
+
+        foreach (i, ref element; result._this)
+            mixin ("element = _this[i] " ~ op ~ " summand._this[i];");
+
         return result;
     }
 
@@ -211,18 +200,16 @@ struct Vector (Type, size_t Elements, string Accessors = "",
     }
 
     /**
-     * Method implements vector multiplication by number. 
-     * 
-     * Params:
-     *        num  =      multiplication number.
-     * 
-     * Returns: result vector;
+     * Processes vector multiplication and division with number.
      */
     nothrow @safe auto opBinary (string op, T)(T num) 
         if ((op == "*" || op == "/") && isNumeric!T)
     {
         Self result;
-        mixin ("result._this = _this " ~ op ~ " num;");
+
+        foreach (i, ref element; result._this)
+            mixin ("element = _this[i] " ~ op ~ " num;");
+
         return result;
     }
 
@@ -234,39 +221,25 @@ struct Vector (Type, size_t Elements, string Accessors = "",
     }
 
     /**
-     * Method implements vector multiplication by another vector. Multiplication
-     * vector should be opposite by VectorType (e.g. if current vector is
-     * `horizontal`, factor should be `vertical`) and have the same size. In
-     * result it will be number with current type (`int`, `float`, etc.) or
-     * square matrix.
-     * 
-     * Params:
-     *        factor  =      multiplication vector.
-     * 
-     * Returns: result number or matrix.
+     * Processes vector multiplication and division with another vector. Due to
+     * mathematical restrictions that vector can be multiplied or divided only
+     * by perpendicular vector, both vectors should be converted to matrix and
+     * then processed.
      */
     nothrow @safe auto opBinary (string op, T)(T factor)
         if ((op == "*" || op == "/") && isVector!T)
-    in 
     {
-        static if (VectorType == "vertical")
-            static assert (Elements == T.cols);
-        else
-            static assert (Elements == T.lines);
-    }
-    body
-    {
-        static if (VectorType == "vertical")
-            return mixin ("_this " ~ op ~ " factor._this;");
-        else
-            return mixin ("(_this " ~ op ~ " factor._this)[0][0];");
+        auto matrixThis = toMatrix (),
+             matrixFactor = factor.toMatrix ();
+
+        return matrixThis * matrixFactor;
     }
 
     unittest
     {
         auto v = Vector3i (1, 2, 3);
         auto w = Vector!(int, 3, "", "vertical") (1, 2, 3);
-        assert (v * w == 14);
+        assert (v * w == Matrix1i(14));
 
         auto v2 = Vector!(int, 3, "", "vertical") (1, 2, 3);
         auto w2 = Vector3i (1, 2, 3);
@@ -280,21 +253,46 @@ struct Vector (Type, size_t Elements, string Accessors = "",
 
         assert (v2 * w2 == equalMatrix);
     }
+
+    /**
+     * Converts vector to one-lined or one-columned matrix depending on
+     * VectorType.
+     */
+    nothrow @safe auto toMatrix ()
+    {
+        static if (VectorType == "vertical")
+        {
+            Type[1][Size] data;
+
+            foreach (size_t i, ref element; _this)
+                data[i][0] = element;
+
+            auto result = Matrix!(Type, Size, 1)(data);
+        }
+        else
+        {
+            Type[Size][1] data;
+
+            foreach (size_t i, ref element; _this)
+                data[0][i] = element;
+
+            auto result = Matrix!(Type, 1, Size)(data);
+        }
+
+        return result;
+    }
 }
 
 /**
- * Template checks type for being a vector.
- * 
- * Params:
- *        Type  =      tesing type.
+ * Tests type to be a vector.
  */
 pure nothrow @safe template isVector (Type)
 {
     enum isVector = is (typeof (isVectorImpl (Type.init)));
 }
 
-private void isVectorImpl (Type, size_t Elements, string Accessors, string VectorType)
-                          (Vector!(Type, Elements, Accessors, VectorType)){}
+private void isVectorImpl (Type, size_t Size, string Accessors, string VectorType)
+                          (Vector!(Type, Size, Accessors, VectorType)){}
 
 unittest
 {
@@ -306,10 +304,10 @@ unittest
 
 private:
 
-// Method counts accessors depending on it's content.
-size_t CountAccessors (string Accessors, size_t Elements)
+// Compile-time vector accessors counting.
+size_t CountAccessors (string Accessors, size_t Size)
 {
-    if (Elements == 1)
+    if (Size == 1)
         return Accessors.length == 0 ? 0 : 1;
     else if (!Accessors.hasSymbol ('|') && !Accessors.hasSymbol (','))
         return Accessors.length;
@@ -322,7 +320,7 @@ size_t CountAccessors (string Accessors, size_t Elements)
     }
 }
 
-// Method checks string for specified symbol.
+// Compile-time test for char existence in the string.
 bool hasSymbol (string str, char sym)
 {
     bool has;
@@ -334,30 +332,21 @@ bool hasSymbol (string str, char sym)
     return has;
 }
 
-// Method generates accessors to vector elements by letters from a string. 
-string AttrAccessor (string Accessors, size_t Elements, string VectorType)
+// Compile-time generation of accessor methods.
+string AttrAccessor (string Accessors, size_t Size)
 {
     string result;
-    string code;
+    string code = q{
+        @property ref Type @{funcName} () { return _this[@{number}]; }
+    };
 
-    if (VectorType == "vertical")
-    {
-        code = q{
-            @property ref Type @{funcName} () { return _this[@{number}][0]; }
-        };
-    }
-    else
-    {
-        code = q{
-            @property ref Type @{funcName} () { return _this[0][@{number}]; }
-        };
-    }
-
-    if (Elements == 1 )
+    if (Size == 1 )
         result ~= render (code, ["funcName": Accessors, "number": "0"]);
-    else if (Elements > 1 && !Accessors.hasSymbol ('|') && !Accessors.hasSymbol (','))
+    else if (Size > 1 && !Accessors.hasSymbol ('|') 
+             && !Accessors.hasSymbol (','))
         foreach (size_t index, accessor; Accessors)
-            result ~= render (code, ["funcName": accessor.to!string, "number": index.to!string]);
+            result ~= render (code, ["funcName": accessor.to!string, 
+                                     "number": index.to!string]);
     else
     {
         string[] AccessorsList;
@@ -368,7 +357,8 @@ string AttrAccessor (string Accessors, size_t Elements, string VectorType)
             AccessorsList = Accessors.split (',');
 
         foreach (size_t index, accessor; AccessorsList)
-            result ~= render (code, ["funcName": accessor, "number": index.to!string]);
+            result ~= render (code, ["funcName": accessor, 
+                                     "number": index.to!string]);
     }
     
     return result;

@@ -1,78 +1,58 @@
 ﻿// Written in the D programming language
 /**
- * Implementation of mathematic matrix. 
+ * Implementation of matrix in mathematical definition.
+ * Features:
+ * $(OL
+ *      $(LI All matrix actions is checked at compile time)
+ *      $(LI Matrix contains only it's data, and nothing additional)
+ *      $(LI Almost all matrix actions is `nothrow` and `@safe`)
+ * )
  * 
- * It is created at compile time with main settings: `Type` - type of inner
- * data, `Lines` - quantity of matrix lines, and `Cols` - quantity of matrix
- * columns. Then, in runtime, matrix is initialized by numbers.
- * 
- * Examples:
- * --------------------
- * auto m = Matrix!(int, 3, 3)
- * (
- *      3, -1, 6,
- *      2,  1, 5,
- *     -3,  1, 0
- * );
- * --------------------
- * 
- * Created structure can be treated as a mathematic matrix. Matrix could be added to
- * another matrix, it could be multiplied by number or another matrix, and so
- * on.
- * 
- * Examples:
- * --------------------
- * auto x = m + m; // x =  6, -2, 12,
- *                 //      4,  2, 10,
- *                 //     -6,  2,  0
- * 
- * auto y = m * 2  // y =  6, -2, 12,
- *                 //      4,  2, 10,
- *                 //     -6,  2,  0
- * 
- * auto n = Matrix!(int, 3, 2)
- * (
- *     3, 4,
- *     1, 0,
- *     5, 2
- * );
- * 
- * auto z = m * n  // z = 38,  24,
- *                 //     32,  18,
- *                 //     -8, -12
- * --------------------
+ * Usage:
+ * Just create matrix as in documentation below and treat it like a simple
+ * two-dimensional array (if you want to get some data from matrix or put it in)
+ * or number (if you need to do some mathematical action with matrix).
  */
 module mathed.types.matrix;
 
 private
 {
-    import std.traits : hasMember, isStaticArray, isNumeric, 
-        isBoolean, isSomeString;
+    import std.traits : isNumeric;
     import std.conv : to;   
 }
 
+alias Matrix!(float, 1, 1) Matrix1f;
 alias Matrix!(float, 2, 2) Matrix2f;
 alias Matrix!(float, 3, 3) Matrix3f;
 alias Matrix!(float, 4, 4) Matrix4f;
 
+alias Matrix!(int, 1, 1) Matrix1i;
 alias Matrix!(int, 2, 2) Matrix2i;
 alias Matrix!(int, 3, 3) Matrix3i;
 alias Matrix!(int, 4, 4) Matrix4i;
 
 /**
- * Main matrix interface
+ * Main matrix interface.
  */
 struct Matrix (Type, size_t Lines, size_t Cols)
 {
     alias Matrix!(Type, Lines, Cols) Self;
 
-    // Main matrix container. It keeps all matrix data.
+    /*
+     * Matrix core array.
+     */
     private  Type[Cols][Lines] _this;
 
-    // Methods return matrix column and line quantity
     static @property pure nothrow @safe 
     {
+        /**
+         * Returns quantity of matrix columns.
+         */
         auto cols () { return Cols; }
+
+        /**
+         * Returns quantity of matrix lines.
+         */
         auto lines () { return Lines; }
     }
 
@@ -89,19 +69,19 @@ struct Matrix (Type, size_t Lines, size_t Cols)
     }
 
     /**
-     * Matrix constructor.
-     * 
-     * Params:
-     *        values  =      array of new matrix values.
+     * Matrix default constructor. It receives a bunch of values in amount
+     * of product of matrix lines and columns.
      */
     nothrow @safe this (Type[Lines * Cols] values...) { set (values); }
+
+    /**
+     * Matrix additional constructor. It receives one static two-dimensional
+     * array that is same to matrix core array. 
+     */
     nothrow @safe this (Type[Cols][Lines] values) { _this = values; }
 
     /**
-     * Method sets all matrix values in one action.
-     * 
-     * Params:
-     *        values  =      array of setting matrix values.
+     * Sets all matrix values in one action. It receives bunch of values.
      */
     nothrow @safe void set (Type[Lines * Cols] values...)
     {
@@ -116,17 +96,23 @@ struct Matrix (Type, size_t Lines, size_t Cols)
         }
     }
 
+    /**
+     * Additional `set` method. It receives two-dimensional array.
+     */
     nothrow @safe void set (Type[Cols][Lines] values) { _this = values; }
 
+    ///
     unittest
     {
-        auto m = Matrix3i
+        // Creating matrix
+        auto m = Matrix!(int, 3, 3)
         (
              3, -1, 6,
              2,  1, 5,
             -3,  1, 0
         );
 
+        // Setting all values at zero.
         m.set
         (
             0, 0, 0,
@@ -134,11 +120,12 @@ struct Matrix (Type, size_t Lines, size_t Cols)
             0, 0, 0
         );
 
+        // Testing some values to be zero. 
         assert (m[0][0] == 0);
     }
 
     /**
-     * Method stringifies matrix data.
+     * Stringifies matrix data. 
      */
     string toString () { return _this.to!string (); }
 
@@ -156,12 +143,7 @@ struct Matrix (Type, size_t Lines, size_t Cols)
     }
 
     /**
-     * Method returns matrix line.
-     * 
-     * Params:
-     *        lineIndex  =      index of calling matrix line
-     * 
-     * Returns: matrix line as static array.
+     * Gives matrix line.
      */
     nothrow @safe ref auto opIndex (size_t lineIndex) { return _this[lineIndex]; }
 
@@ -177,7 +159,33 @@ struct Matrix (Type, size_t Lines, size_t Cols)
         assert (m[2][0] == -3);
     }
 
-    int opApply (int delegate (size_t, size_t, Type) foreach_)
+    /**
+     * Iterates matrix in turn, excluding line and column numbers. E.g. in
+     * Matrix3x3 iteration, returned number of m[1][2] element will be `5`.
+     */
+    int opApply (int delegate (ref size_t, ref Type) foreach_)
+    {
+        int result;
+
+        size_t index;
+        foreach (size_t i, ref line; _this)
+        {
+            foreach (size_t j, ref col; line)
+            {
+                result = foreach_ (index, col);
+                index++;
+
+                if (result) break;
+            }
+        }
+        
+        return result;
+    }
+
+    /**
+     * Another iteration method. It returns line and column number with element.
+     */
+    int opApply (int delegate (ref size_t, ref size_t, ref Type) foreach_)
     {
         int result;
         foreach (size_t i, ref line; _this)
@@ -193,6 +201,7 @@ struct Matrix (Type, size_t Lines, size_t Cols)
         return result;
     }
 
+    ///
     unittest
     {
         auto m = Matrix3i
@@ -201,7 +210,8 @@ struct Matrix (Type, size_t Lines, size_t Cols)
              2,  1, 5,
             -3,  1, 0
         );
-        
+
+        // Let's iterate matrix in turn
         size_t index;
         foreach (i, ref element; m)
         {
@@ -212,7 +222,8 @@ struct Matrix (Type, size_t Lines, size_t Cols)
             }
         }
         assert (index == 5);
-        
+
+        // Let's iterate matrix with line and column number
         size_t line, col;
         foreach (i, j, ref element; m)
         {
@@ -226,13 +237,7 @@ struct Matrix (Type, size_t Lines, size_t Cols)
     }
 
     /**
-     * Method implements matrix addition. Adding matrix should be equal by type,
-     * lines and colums quantity.
-     * 
-     * Params:
-     *        summand  =      adding matrix.
-     * 
-     * Returns: result matrix.
+     * Processes matrix addition and subtraction.
      */
     nothrow @safe auto opBinary (string op)(Self summand)
         if (op == "+" || op == "-")
@@ -266,14 +271,9 @@ struct Matrix (Type, size_t Lines, size_t Cols)
 
         assert (x == equalX);
     }
-    
+
     /**
-     * Method implements matrix multiplication by number. 
-     * 
-     * Params:
-     *        num  =      multiplication number.
-     * 
-     * Returns: result matrix;
+     * Processes matrix multiplication and division with number.
      */
     nothrow @safe auto opBinary (string op, T)(T num)
         if ((op == "*" || op == "/") && isNumeric!T)
@@ -307,16 +307,9 @@ struct Matrix (Type, size_t Lines, size_t Cols)
 
         assert (y == equalY);
     }
-    
+
     /**
-     * Method implements matrix multiplication by matrix. Multiplication matrix
-     * should have lines quantity equal to current matrix columns quantity. If
-     * it is not correct, error will be shown at compile time. 
-     * 
-     * Params:
-     *        factor  =      multiplication matrix.
-     * 
-     * Returns: result matrix;
+     * Processes matrix multiplication and division with another matrix.
      */
     nothrow @safe auto opBinary (string op, T)(T factor)
         if ((op == "*" || op == "/") && isMatrix!T)
@@ -333,6 +326,7 @@ struct Matrix (Type, size_t Lines, size_t Cols)
         return newMatrix;
     }
 
+    ///
     unittest
     {
         auto m = Matrix!(int, 3, 3)
@@ -363,10 +357,7 @@ struct Matrix (Type, size_t Lines, size_t Cols)
 }
 
 /**
- * Template checks type for being a matrix.
- * 
- * Params:
- *        Type  =      tesing type.
+ * Tests type to be a matrix.
  */
 pure nothrow @safe template isMatrix (Type)
 {
@@ -376,6 +367,7 @@ pure nothrow @safe template isMatrix (Type)
 private void isMatrixImpl (Type, size_t Lines, size_t Cols)
                           (Matrix!(Type, Lines, Cols)){}
 
+///
 unittest
 {
     auto v = Matrix2i (1, 2, 3, 4);
