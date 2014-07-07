@@ -31,7 +31,7 @@
  *           
  *           auto vec = Vector!(int, 2, "col|row")(10, 20);
  *           
- *           Accessor delimiter in the accessors string can be only "|" or ",".
+ *           Accessor delimiter in the accessors string should be "|" or ",".
  *           Then you can call vector accessor:
  * 
  *           assert (vec.col == 10);
