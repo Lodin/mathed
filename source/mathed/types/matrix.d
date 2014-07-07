@@ -12,12 +12,21 @@
  * Just create matrix as in documentation below and treat it like a simple
  * two-dimensional array (if you want to get some data from matrix or put it in)
  * or number (if you need to do some mathematical action with matrix).
+ * 
+ * Copyright:
+ *      Copyright Vlad Rindevich, 2014.
+ * 
+ * License:
+ *      $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
+ * 
+ * Authors:
+ *      Vlad Rindevich (rindevich.vs@gmail.com).
  */
 module mathed.types.matrix;
 
 private
 {
-    import std.traits : isNumeric;
+    import std.traits : isNumeric, isUnsigned, isFloatingPoint;
     import std.conv : to;   
 }
 
@@ -239,8 +248,15 @@ struct Matrix (Type, size_t Lines, size_t Cols)
     /**
      * Processes matrix addition and subtraction.
      */
-    nothrow @safe auto opBinary (string op)(Self summand)
+    nothrow @safe auto opBinary (string op)(in Self summand)
         if (op == "+" || op == "-")
+    in
+    {
+        static assert (!is(Type == bool),
+                       "Impossible to apply mathematical action"
+                       ~ "to boolean matrix");
+    }
+    body
     {
         Self newMatrix;
 
@@ -275,8 +291,15 @@ struct Matrix (Type, size_t Lines, size_t Cols)
     /**
      * Processes matrix multiplication and division with number.
      */
-    nothrow @safe auto opBinary (string op, T)(T num)
+    nothrow @safe auto opBinary (string op, T)(in T num)
         if ((op == "*" || op == "/") && isNumeric!T)
+    in
+    {
+        static assert (!is(Type == bool),
+                       "Impossible to apply mathematical action"
+                       ~ "to boolean matrix");
+    }
+    body
     {
         Self newMatrix;
         
@@ -309,11 +332,17 @@ struct Matrix (Type, size_t Lines, size_t Cols)
     }
 
     /**
-     * Processes matrix multiplication and division with another matrix.
+     * Processes matrix multiplication with another matrix.
      */
-    nothrow @safe auto opBinary (string op, T)(T factor)
-        if ((op == "*" || op == "/") && isMatrix!T)
-    in { static assert (Cols == T.lines); }
+    nothrow @safe auto opBinary (string op, T)(in T factor)
+        if (op == "*" && isMatrix!T)
+    in
+    {
+        static assert (Cols == T.lines);
+        static assert (!is(Type == bool),
+                       "Impossible to apply mathematical action"
+                       ~ "to boolean matrix");
+    }
     body
     {
         Matrix!(Type, Lines, T.cols) newMatrix;
@@ -353,6 +382,32 @@ struct Matrix (Type, size_t Lines, size_t Cols)
         );
 
         assert (z == equalZ);
+    }
+
+    /**
+     * Transposes matrix.
+     */
+    @property nothrow @safe t ()
+    {
+        Matrix!(Type, Cols, Lines) newMatrix;
+
+        foreach (size_t i, ref line; newMatrix._this)
+            foreach (size_t j, ref col; line)
+                col = _this[j][i];
+
+        return newMatrix;
+    }
+
+    unittest
+    {
+        auto m = Matrix!(int, 3, 3)
+        (
+             3, -1, 6,
+             2,  1, 5,
+            -3,  1, 0
+        );
+
+        assert (m.t.t == m);
     }
 }
 

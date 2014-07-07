@@ -41,6 +41,15 @@
  * Vector also has VectorType - a string that defines vector orientation:
  * `horizontal` or `vertical`. It is needed only when vector is converted to
  * matrix and by default is `horizontal`.
+ * 
+ * Copyright:
+ *      Copyright Vlad Rindevich, 2014.
+ * 
+ * License:
+ *      $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
+ * 
+ * Authors:
+ *      Vlad Rindevich (rindevich.vs@gmail.com).
  */
 module mathed.types.vector;
 
@@ -181,7 +190,7 @@ struct Vector (Type, size_t Size, string Accessors = "",
     /**
      * Processes vector addition and subtraction.
      */ 
-    nothrow @safe auto opBinary (string op)(Self summand) 
+    nothrow @safe auto opBinary (string op)(in Self summand) 
         if (op == "+" || op == "-")
     {
         Self result;
@@ -202,8 +211,8 @@ struct Vector (Type, size_t Size, string Accessors = "",
     /**
      * Processes vector multiplication and division with number.
      */
-    nothrow @safe auto opBinary (string op, T)(T num) 
-        if ((op == "*" || op == "/") && isNumeric!T)
+    nothrow @safe auto opBinary (string op, T)(in T num) 
+        if ((op == "*" || op == "/") && !isVector!T)
     {
         Self result;
 
@@ -211,6 +220,12 @@ struct Vector (Type, size_t Size, string Accessors = "",
             mixin ("element = _this[i] " ~ op ~ " num;");
 
         return result;
+    }
+
+    nothrow @safe auto opBinaryRight (string op, T)(in T num)
+        if ((op == "*" || op == "/") && !isVector!T)
+    {
+        return opBinary!op (num);
     }
 
     unittest
@@ -221,18 +236,15 @@ struct Vector (Type, size_t Size, string Accessors = "",
     }
 
     /**
-     * Processes vector multiplication and division with another vector. Due to
-     * mathematical restrictions that vector can be multiplied or divided only
-     * by perpendicular vector, both vectors should be converted to matrix and
+     * Processes vector multiplication with another vector. Due to mathematical
+     * restrictions that vector can be multiplied or divided only by
+     * perpendicular vector, both vectors should be converted to matrix and
      * then processed.
      */
     nothrow @safe auto opBinary (string op, T)(T factor)
-        if ((op == "*" || op == "/") && isVector!T)
+        if (op == "*" && isVector!T)
     {
-        auto matrixThis = toMatrix (),
-             matrixFactor = factor.toMatrix ();
-
-        return matrixThis * matrixFactor;
+        return this.toMatrix () * factor.toMatrix ();
     }
 
     unittest
@@ -281,6 +293,25 @@ struct Vector (Type, size_t Size, string Accessors = "",
 
         return result;
     }
+
+    /**
+     * Transposes vector.
+     */
+    nothrow @safe auto t ()
+    {
+        static if (VectorType == "vertical")
+            return Vector!(Type, Size, Accessors, "horizontal")(_this);
+        else
+            return Vector!(Type, Size, Accessors, "vertical")(_this);
+    }
+
+    unittest
+    {
+        auto v = Vector3i (1, 2, 3);
+        auto a = v.t * v;
+        assert (v.t.toMatrix ().lines == 3);
+    }
+
 }
 
 /**
