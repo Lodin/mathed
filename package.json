@@ -2,7 +2,7 @@
     "name": "mathed",
     "description": "Small math library for D",
     "copyright": "Copyright © 2014, Vlad Rindevich",
-    "version": "~master",
+    "version": "0.1.0",
     "authors": ["Vlad Rindevich"],
     "importPaths": ["source/"],
     "license": "BSL-1.0",
