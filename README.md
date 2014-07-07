@@ -66,26 +66,16 @@ element. Accessor can be two types:
   are `horizontal`.
 3. If you need to check type of some variable to be a vector, use `isVector`.
   ```d
-    /*
-     * Vector accessor (one-letter)
-     */
+    // Vector accessor (one-letter)
 
     auto vec = Vector!(int, 2, "xy")(10, 20);
-    
-    // Calling vector accessor
     assert (vec.x == 10); 
     
-    /*
-     * Vector accessor (multiletter)
-     */
+    // Vector accessor (multiletter)
     auto vec = Vector!(int, 2, "col|row")(10, 20);
-    
-    // Calling vector accessor
     assert (vec.col == 10);
     
-    /*
-     * Convertion vector to matrix
-     */
+    // Convertion vector to matrix
     auto vec = Vector!(int, 2, "col|row")(10, 20);
     vec.toMatrix ();
     assert (isMatrix!(typeof (vec)));
