@@ -10,14 +10,6 @@ This is a small math library written in D Programming Language.
 
 ### Matirx usage
 1. Creating matrix
-  ```d
-    auto m = Matrix!(int, 3, 3)
-    (
-       3, -1, 6,
-       2,  1, 5,
-      -3,  1, 0
-    );
-  ```
 2. Matrix can be:
   1. added: `m + m`.
   2. subtracted: `m - m`.
@@ -30,6 +22,15 @@ This is a small math library written in D Programming Language.
   9. set in one action:
 3. If you need to check type of some variable to be a matrix, use `isMatrix`
   ```d
+    // Creating matrix
+    auto m = Matrix!(int, 3, 3)
+    (
+       3, -1, 6,
+       2,  1, 5,
+      -3,  1, 0
+    );
+    assert (m[0][2] == 6);
+  
     // Iteration by element number
     foreach (i, ref col; m)
     {
@@ -66,8 +67,11 @@ element. Accessor can be two types:
   are `horizontal`.
 3. If you need to check type of some variable to be a vector, use `isVector`.
   ```d
+    // Creating simple vector
+    auto vec = Vector!(int, 2)(10, 20);
+    assert (vec[0] == 10);
+  
     // Vector accessor (one-letter)
-
     auto vec = Vector!(int, 2, "xy")(10, 20);
     assert (vec.x == 10); 
     
