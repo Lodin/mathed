@@ -417,10 +417,10 @@ struct Matrix (Type, size_t Lines, size_t Cols)
 pure nothrow @safe template isMatrix (Type)
 {
     enum isMatrix = is (typeof (isMatrixImpl (Type.init)));
-}
 
-private void isMatrixImpl (Type, size_t Lines, size_t Cols)
-                          (Matrix!(Type, Lines, Cols)){}
+    private void isMatrixImpl (Type, size_t Lines, size_t Cols)
+    (Matrix!(Type, Lines, Cols)){}
+}
 
 ///
 unittest

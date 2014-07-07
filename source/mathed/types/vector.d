@@ -320,10 +320,10 @@ struct Vector (Type, size_t Size, string Accessors = "",
 pure nothrow @safe template isVector (Type)
 {
     enum isVector = is (typeof (isVectorImpl (Type.init)));
-}
 
-private void isVectorImpl (Type, size_t Size, string Accessors, string VectorType)
-                          (Vector!(Type, Size, Accessors, VectorType)){}
+    private void isVectorImpl (Type, size_t Size, string Accessors, string VectorType)
+                              (Vector!(Type, Size, Accessors, VectorType)){}
+}
 
 unittest
 {
