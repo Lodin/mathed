@@ -26,7 +26,7 @@ module mathed.types.matrix;
 
 private
 {
-    import std.traits : isNumeric, isUnsigned, isFloatingPoint;
+    import std.traits : isNumeric;
     import std.conv : to;   
 }
 
@@ -154,7 +154,7 @@ struct Matrix (Type, size_t Lines, size_t Cols)
     /**
      * Gives matrix line.
      */
-    nothrow @safe ref auto opIndex (size_t lineIndex) { return _this[lineIndex]; }
+    nothrow @safe ref Type[Cols] opIndex (size_t line) { return _this[line]; }
 
     unittest
     {
@@ -240,6 +240,7 @@ struct Matrix (Type, size_t Lines, size_t Cols)
             {
                 line = i;
                 col = j;
+                break;
             }
         }
         assert (line == 1 && col == 2);
@@ -248,7 +249,7 @@ struct Matrix (Type, size_t Lines, size_t Cols)
     /**
      * Processes matrix addition and subtraction.
      */
-    nothrow @safe auto opBinary (string op)(in Self summand)
+    nothrow @safe Self opBinary (string op)(in Self summand)
         if (op == "+" || op == "-")
     in
     {
@@ -291,7 +292,7 @@ struct Matrix (Type, size_t Lines, size_t Cols)
     /**
      * Processes matrix multiplication and division with number.
      */
-    nothrow @safe auto opBinary (string op, T)(in T num)
+    nothrow @safe Self opBinary (string op, T)(in T num)
         if ((op == "*" || op == "/") && isNumeric!T)
     in
     {
@@ -334,7 +335,7 @@ struct Matrix (Type, size_t Lines, size_t Cols)
     /**
      * Processes matrix multiplication with another matrix.
      */
-    nothrow @safe auto opBinary (string op, T)(in T factor)
+    nothrow @safe Matrix!(Type, Lines, T.cols) opBinary (string op, T)(in T factor)
         if (op == "*" && isMatrix!T)
     in
     {
@@ -387,7 +388,7 @@ struct Matrix (Type, size_t Lines, size_t Cols)
     /**
      * Transposes matrix.
      */
-    @property nothrow @safe t ()
+    @property nothrow @safe Matrix!(Type, Cols, Lines) t ()
     {
         Matrix!(Type, Cols, Lines) newMatrix;
 

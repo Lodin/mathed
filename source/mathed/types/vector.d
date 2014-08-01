@@ -59,7 +59,7 @@ private
     import std.traits : isNumeric;
     import std.array : appender, split;
     import std.conv : to;
-    import std.string : indexOf, strip;
+    import std.string : indexOf, strip, format;
 }
 
 alias Vector!(float, 2) Vector2f;
@@ -101,7 +101,7 @@ struct Vector (Type, size_t Size, string Accessors = "",
     /**
      * Returns vector size (quantity of it's elements).
      */
-    pure nothrow @safe static @property auto size () { return Size; }
+    pure nothrow @safe static @property size_t size () { return Size; }
 
     unittest
     {
@@ -160,9 +160,9 @@ struct Vector (Type, size_t Size, string Accessors = "",
     /**
      * Gives vector element.
      */
-    nothrow @safe ref auto opIndex (size_t linesIndex)
+    nothrow @safe ref auto opIndex (size_t element)
     {
-        return _this[linesIndex];
+        return _this[element];
     }
 
     unittest
@@ -190,7 +190,7 @@ struct Vector (Type, size_t Size, string Accessors = "",
     /**
      * Processes vector addition and subtraction.
      */ 
-    nothrow @safe auto opBinary (string op)(in Self summand) 
+    nothrow @safe Self opBinary (string op)(in Self summand) 
         if (op == "+" || op == "-")
     {
         Self result;
@@ -211,7 +211,7 @@ struct Vector (Type, size_t Size, string Accessors = "",
     /**
      * Processes vector multiplication and division with number.
      */
-    nothrow @safe auto opBinary (string op, T)(in T num) 
+    nothrow @safe Self opBinary (string op, T)(in T num) 
         if ((op == "*" || op == "/") && !isVector!T)
     {
         Self result;
@@ -222,7 +222,7 @@ struct Vector (Type, size_t Size, string Accessors = "",
         return result;
     }
 
-    nothrow @safe auto opBinaryRight (string op, T)(in T num)
+    nothrow @safe Self opBinaryRight (string op, T)(in T num)
         if ((op == "*" || op == "/") && !isVector!T)
     {
         return opBinary!op (num);
@@ -297,7 +297,7 @@ struct Vector (Type, size_t Size, string Accessors = "",
     /**
      * Transposes vector.
      */
-    nothrow @safe auto t ()
+    @property nothrow @safe auto t ()
     {
         static if (VectorType == "vertical")
             return Vector!(Type, Size, Accessors, "horizontal")(_this);
@@ -368,16 +368,14 @@ string AttrAccessor (string Accessors, size_t Size)
 {
     string result;
     string code = q{
-        @property ref Type @{funcName} () { return _this[@{number}]; }
+        @property ref Type %1$s () { return _this[%2$s]; }
     };
 
     if (Size == 1 )
-        result ~= render (code, ["funcName": Accessors, "number": "0"]);
-    else if (Size > 1 && !Accessors.hasSymbol ('|') 
-             && !Accessors.hasSymbol (','))
+        result ~= format (code, Accessors, 0);
+    else if (Size > 1 && !Accessors.hasSymbol ('|') && !Accessors.hasSymbol (','))
         foreach (size_t index, accessor; Accessors)
-            result ~= render (code, ["funcName": accessor.to!string, 
-                                     "number": index.to!string]);
+            result ~= format (code, accessor, index);
     else
     {
         string[] AccessorsList;
@@ -388,47 +386,7 @@ string AttrAccessor (string Accessors, size_t Size)
             AccessorsList = Accessors.split (',');
 
         foreach (size_t index, accessor; AccessorsList)
-            result ~= render (code, ["funcName": accessor, 
-                                     "number": index.to!string]);
-    }
-    
-    return result;
-}
-
-// Compile-time rendering of code templates.
-// Author: Nicolas Sicard, https://github.com/biozic
-string render (string templ, string[string] args)
-{
-    string markupStart = "@{";
-    string markupEnd = "}";
-    
-    string result;
-    auto str = templ;
-    while (true)
-    {
-        auto p_start = indexOf(str, markupStart);
-        if (p_start < 0)
-        {
-            result ~= str;
-            break;
-        }
-        else
-        {
-            result ~= str[0 .. p_start];
-            str = str[p_start + markupStart.length .. $];
-            
-            auto p_end = indexOf(str, markupEnd);
-            if (p_end < 0)
-                assert(false, "Tag misses ending }");
-            auto key = strip(str[0 .. p_end]);
-            
-            auto value = key in args;
-            if (!value)
-                assert(false, "Key '" ~ key ~ "' has no associated value");
-            result ~= *value;
-            
-            str = str[p_end + markupEnd.length .. $];
-        }
+            result ~= format (code, accessor, index);
     }
     
     return result;
