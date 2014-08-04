@@ -59,7 +59,7 @@ private
     import std.traits : isNumeric;
     import std.array : appender, split;
     import std.conv : to;
-    import std.string : indexOf, strip, format;
+    import std.string : format;
 }
 
 alias Vector!(float, 2) Vector2f;
@@ -71,10 +71,10 @@ alias Vector!(int, 3) Vector3i;
 alias Vector!(int, 4) Vector4i;
 
 alias Vector!(int, 2, "xy")  Planei;
-alias Vector!(int, 3, "xyz") Coordi;
+alias Vector!(int, 3, "xyz") Stereoi;
 
 alias Vector!(float, 2, "xy")  Planef;
-alias Vector!(float, 3, "xyz") Coordf;
+alias Vector!(float, 3, "xyz") Stereof;
 
 /**
  * Main vector interface.
