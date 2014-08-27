@@ -5,7 +5,7 @@
  * $(OL
  *      $(LI All vector actions is checked at compile time)
  *      $(LI Vector contains only it's data, and nothing additional)
- *      $(LI Almost all vector actions is `nothrow` and `@safe`)
+ *      $(LI Almost all vector actions is `pure` and `nothrow`)
  *      $(LI Vector can have one- and multiletter accessors)
  * )
  * 
@@ -18,7 +18,7 @@
  * element. Accessor can be two types:
  * $(OL
  *      $(LI One-letter accessor. To create vector with this type you should
- *           make vector like that:
+ *           create vector like that:
  * 
  *           auto vec = Vector!(int, 2, "xy")(10, 20);
  * 
@@ -27,7 +27,7 @@
  *           assert (vec.x == 10);
  *      )
  *      $(LI Multiletter accessor. To create vector with this type you should
- *           make vector like that:
+ *           create vector like that:
  *           
  *           auto vec = Vector!(int, 2, "col|row")(10, 20);
  *           
@@ -55,7 +55,7 @@ module mathed.types.vector;
 
 private 
 {
-    import mathed.types.matrix : Matrix, isMatrix, Matrix1i, Matrix3i;
+    import mathed.types.matrix : Matrix, DefaultInit, isMatrix, Matrix1i, Matrix3i;
     import std.traits : isNumeric;
     import std.array : appender, split;
     import std.conv : to;
@@ -70,38 +70,43 @@ alias Vector!(int, 2) Vector2i;
 alias Vector!(int, 3) Vector3i;
 alias Vector!(int, 4) Vector4i;
 
-alias Vector!(int, 2, "xy")  Planei;
-alias Vector!(int, 3, "xyz") Stereoi;
-
 alias Vector!(float, 2, "xy")  Planef;
 alias Vector!(float, 3, "xyz") Stereof;
+
+alias Vector!(int, 2, "xy")  Planei;
+alias Vector!(int, 3, "xyz") Stereoi;
 
 /**
  * Main vector interface.
  */
-struct Vector (Type, size_t Size, string Accessors = "", 
+@trusted struct Vector (Type, size_t Size, string Accessors = "", 
                string VectorType = "horizontal")
+    if (Size > 0)
 {
-    static assert (CountAccessors (Accessors, Size) == 0 
-                   || CountAccessors (Accessors, Size) == Size,
-                   "Quantity of attribute accessors should be equal to vector "
-                   ~ "size or be empty string, not " 
-                   ~ CountAccessors (Accessors).to!string ());
+    static assert (isAcceptableSize!(Accessors, Size),
+                   format (INACCEPTABLE_SIZE, CountAccessors (Accessors)));
 
-    static assert (VectorType == "horizontal" || VectorType == "vertical",
-                   "VectorType should be `horizontal` or `vertical`");
+    static assert (isAcceptableType!VectorType,
+                   format (INACCEPTABLE_TYPE, VectorType));
 
-    alias Vector!(Type, Size, Accessors) Self;
+    private
+    {
+        alias Vector!(Type, Size, Accessors) Self;
+        
+        /*
+         * Vector core array.
+         */
+        static if (isNumeric!Type)
+            Type[Size] data = mixin (DefaultInit (Size));
+        else
+            Type[Size] data;
+    }
 
-    /*
-     * Vector core array.
-     */
-    private Type[Size] _this;
+    /// Returns vector size (quantity of it's elements).
+    alias Size size;
 
-    /**
-     * Returns vector size (quantity of it's elements).
-     */
-    pure nothrow @safe static @property size_t size () { return Size; }
+    /// Returns type of vector data
+    alias Type type;
 
     unittest
     {
@@ -112,7 +117,10 @@ struct Vector (Type, size_t Size, string Accessors = "",
     /**
      * Vector default constructor. 
      */
-    nothrow @safe this (Type[Size] values...) { _this = values; }
+    @trusted this (Type[Size] values...) pure nothrow
+    {
+        set (values);
+    }
 
     static if (Accessors != "")
         mixin (AttrAccessor (Accessors, Size));
@@ -132,7 +140,11 @@ struct Vector (Type, size_t Size, string Accessors = "",
     /**
      * Sets all vector values in one action.
      */
-    nothrow @safe void set (Type[Size] values...) { _this = values; }
+    @trusted void set (Type[Size] values...) pure nothrow
+    {
+        foreach (size_t index, ref element; data)
+            element = values[index];
+    }
 
     ///
     unittest
@@ -148,7 +160,7 @@ struct Vector (Type, size_t Size, string Accessors = "",
     /**
      * Stringifies vector.
      */
-    string toString () { return _this.to!string (); }
+    @trusted string toString () { return data.to!string (); } 
 
     unittest
     {
@@ -158,11 +170,11 @@ struct Vector (Type, size_t Size, string Accessors = "",
     }
 
     /**
-     * Gives vector element.
+     * Gets vector element.
      */
-    nothrow @safe ref auto opIndex (size_t element)
+    @trusted ref auto opIndex (size_t element) pure nothrow
     {
-        return _this[element];
+        return data[element];
     }
 
     unittest
@@ -174,11 +186,25 @@ struct Vector (Type, size_t Size, string Accessors = "",
     /**
      * Iterates vector.
      */
-    int opApply (int delegate (size_t, Type) foreach_)
+    @trusted int opApply (int delegate (ref Type) foreach_)
     {
         int result;
         
-        foreach (size_t index, ref element; _this)
+        foreach (size_t index, ref element; data)
+        {
+            result = foreach_ (element);
+            if (result) break;
+        }
+        
+        return result;
+    }
+
+    /// ditto
+    @trusted int opApply (int delegate (ref size_t, ref Type) foreach_)
+    {
+        int result;
+        
+        foreach (size_t index, ref element; data)
         {
             result = foreach_ (index, element);
             if (result) break;
@@ -188,17 +214,46 @@ struct Vector (Type, size_t Size, string Accessors = "",
     }
 
     /**
+     * Assigns vector to a new variable.
+     */
+    @trusted auto opAssign (in Self newVector) pure nothrow
+    { 
+        foreach (size_t index, ref value; data)
+            value = newVector.data[index];
+    }
+
+    /**
+     * Inverses vector sign.
+     */
+    @trusted auto opUnary(string op)() pure nothrow
+        if( op == "-" )
+    in { static assert (isNumeric!Type, NOT_NUMERIC_FORBIDDEN); }
+    body
+    {
+        return opBinary!"*" (-1);
+    }
+
+    /**
      * Processes vector addition and subtraction.
      */ 
-    nothrow @safe Self opBinary (string op)(in Self summand) 
+    @trusted Self opBinary (string op)(in Self summand) pure nothrow
         if (op == "+" || op == "-")
+    in { static assert (isNumeric!Type, NOT_NUMERIC_FORBIDDEN); }
+    body
     {
-        Self result;
+        Self newVector;
+        foreach (size_t index, ref element; newVector.data)
+            mixin ("element = data[index] " ~ op ~ " summand.data[index];");
+        return newVector;
+    }
 
-        foreach (i, ref element; result._this)
-            mixin ("element = _this[i] " ~ op ~ " summand._this[i];");
-
-        return result;
+    /// ditto
+    @trusted void opOpAssign (string op)(in Self summand) pure nothrow
+        if (op == "+" || op == "-")
+    in { static assert (isNumeric!Type, NOT_NUMERIC_FORBIDDEN); }
+    body
+    {
+        this = opBinary!op (summand);
     }
 
     unittest
@@ -211,38 +266,53 @@ struct Vector (Type, size_t Size, string Accessors = "",
     /**
      * Processes vector multiplication and division with number.
      */
-    nothrow @safe Self opBinary (string op, T)(in T num) 
+    @trusted Self opBinary (string op, T)(in T num) pure nothrow
         if ((op == "*" || op == "/") && !isVector!T)
+    in { static assert (isNumeric!Type, NOT_NUMERIC_FORBIDDEN); }
+    body
     {
-        Self result;
-
-        foreach (i, ref element; result._this)
-            mixin ("element = _this[i] " ~ op ~ " num;");
-
-        return result;
+        Self newVector;
+        foreach (size_t index, ref element; newVector.data)
+            mixin ("element = data[index] " ~ op ~ " num;");
+        return newVector;
     }
 
-    nothrow @safe Self opBinaryRight (string op, T)(in T num)
+    /// ditto
+    @trusted Self opBinaryRight (string op, T)(in T num) pure nothrow
         if ((op == "*" || op == "/") && !isVector!T)
+    in { static assert (isNumeric!Type, NOT_NUMERIC_FORBIDDEN); }
+    body
     {
         return opBinary!op (num);
+    }
+
+    /// ditto
+    @trusted void opOpAssign (string op, T)(in T num) pure nothrow
+        if ((op == "*" || op == "/") && !isVector!T)
+    in { static assert (isNumeric!Type, NOT_NUMERIC_FORBIDDEN); }
+    body
+    {
+        this = opBinary!op (num);
     }
 
     unittest
     {
         auto v = Vector3i (1, 2, 3);
-        auto i = 2;
-        assert (v * i == Vector3i (2, 4, 6));
+        assert (v * 2 == Vector3i (2, 4, 6));
+        v *= 2;
+        assert (v == Vector3i (2, 4, 6));
     }
 
     /**
      * Processes vector multiplication with another vector. Due to mathematical
      * restrictions that vector can be multiplied or divided only by
-     * perpendicular vector, both vectors should be converted to matrix and
+     * perpendicular vector, both vectors will be converted to matrix and
      * then processed.
      */
-    nothrow @safe auto opBinary (string op, T)(T factor)
+    @trusted auto opBinary (string op, T)(T factor) pure nothrow
         if (op == "*" && isVector!T)
+    in { static assert (isNumeric!Type, NOT_NUMERIC_FORBIDDEN); }
+    body
     {
         return this.toMatrix () * factor.toMatrix ();
     }
@@ -251,7 +321,7 @@ struct Vector (Type, size_t Size, string Accessors = "",
     {
         auto v = Vector3i (1, 2, 3);
         auto w = Vector!(int, 3, "", "vertical") (1, 2, 3);
-        assert (v * w == Matrix1i(14));
+        assert (v * w == Matrix1i (14));
 
         auto v2 = Vector!(int, 3, "", "vertical") (1, 2, 3);
         auto w2 = Vector3i (1, 2, 3);
@@ -267,48 +337,62 @@ struct Vector (Type, size_t Size, string Accessors = "",
     }
 
     /**
+     * Processes casting vector to a new type.
+     */
+    @trusted NewType opCast (NewType)() pure nothrow
+        if (isVector!NewType && Size == NewType.size && isNumeric!Type)
+    {
+        NewType newVector;
+        
+        foreach (size_t index, ref element; newVector.data)
+            element = cast(NewType.type) data[index];
+        
+        return newVector;
+    }
+
+    unittest
+    {
+        auto v = Vector!(int, 4)(1, 2, 3, 4);
+        auto w = cast(Vector!(float, 4)) v;
+        assert (is (w.type == float));
+        assert (isVector!(typeof (w)));
+    }
+
+    /**
+     * Casts vector to a string.
+     */
+    @trusted string opCast (NewType)()
+        if (is (NewType == string))
+    {
+        return toString ();
+    }
+
+    /**
      * Converts vector to one-lined or one-columned matrix depending on
      * VectorType.
      */
-    nothrow @safe auto toMatrix ()
+    @trusted auto toMatrix () pure nothrow
     {
         static if (VectorType == "vertical")
-        {
-            Type[1][Size] data;
-
-            foreach (size_t i, ref element; _this)
-                data[i][0] = element;
-
-            auto result = Matrix!(Type, Size, 1)(data);
-        }
+            return Matrix!(Type, Size, 1)(data);
         else
-        {
-            Type[Size][1] data;
-
-            foreach (size_t i, ref element; _this)
-                data[0][i] = element;
-
-            auto result = Matrix!(Type, 1, Size)(data);
-        }
-
-        return result;
+            return Matrix!(Type, 1, Size)(data);
     }
 
     /**
      * Transposes vector.
      */
-    @property nothrow @safe auto t ()
+    @trusted @property auto t () pure nothrow
     {
         static if (VectorType == "vertical")
-            return Vector!(Type, Size, Accessors, "horizontal")(_this);
+            return Vector!(Type, Size, Accessors, "horizontal")(data);
         else
-            return Vector!(Type, Size, Accessors, "vertical")(_this);
+            return Vector!(Type, Size, Accessors, "vertical")(data);
     }
 
     unittest
     {
         auto v = Vector3i (1, 2, 3);
-        auto a = v.t * v;
         assert (v.t.toMatrix ().lines == 3);
     }
 
@@ -317,7 +401,7 @@ struct Vector (Type, size_t Size, string Accessors = "",
 /**
  * Tests type to be a vector.
  */
-pure nothrow @safe template isVector (Type)
+pure nothrow @trusted template isVector (Type)
 {
     enum isVector = is (typeof (isVectorImpl (Type.init)));
 
@@ -336,7 +420,7 @@ unittest
 private:
 
 // Compile-time vector accessors counting.
-size_t CountAccessors (string Accessors, size_t Size)
+size_t CountAccessors (string Accessors, size_t Size) pure @trusted
 {
     if (Size == 1)
         return Accessors.length == 0 ? 0 : 1;
@@ -352,11 +436,11 @@ size_t CountAccessors (string Accessors, size_t Size)
 }
 
 // Compile-time test for char existence in the string.
-bool hasSymbol (string str, char sym)
+bool hasSymbol (string str, char sym) pure nothrow @trusted
 {
     bool has;
 
-    foreach (letter; str)
+    foreach (ref letter; str)
         if (letter == sym)
             has = true;
 
@@ -364,11 +448,14 @@ bool hasSymbol (string str, char sym)
 }
 
 // Compile-time generation of accessor methods.
-string AttrAccessor (string Accessors, size_t Size)
+string AttrAccessor (string Accessors, size_t Size) pure @trusted
 {
     string result;
     string code = q{
-        @property ref Type %1$s () { return _this[%2$s]; }
+        @property ref Type %1$s () pure nothrow @trusted
+        {
+            return data[%2$s];
+        }
     };
 
     if (Size == 1 )
@@ -390,4 +477,25 @@ string AttrAccessor (string Accessors, size_t Size)
     }
     
     return result;
+}
+
+pure @trusted template isAcceptableSize (string Accessors, size_t Size)
+{
+    enum isAcceptableSize = CountAccessors (Accessors, Size) == 0 
+                            || CountAccessors (Accessors, Size) == Size;
+}
+
+pure nothrow @trusted template isAcceptableType (string Type)
+{
+    enum isAcceptableType = Type == "horizontal" 
+                            || Type == "vertical";
+}
+
+enum 
+{
+    NOT_NUMERIC_FORBIDDEN = "Impossible to apply mathematical action to "
+                            ~ "not-numeric vector",
+    INACCEPTABLE_SIZE = "Attribute accessors should be equal to vector size by "
+                        ~ "quantity or be empty string, not %s",
+    INACCEPTABLE_TYPE = "VectorType should be `horizontal` or `vertical`, not %s"
 }

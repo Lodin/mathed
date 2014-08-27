@@ -13,7 +13,7 @@
         {
             "buildOptions": ["unittests"],
             "targetType": "executable",
-            "versions": ["TestMain"],
+            "versions": ["TestMatrix"],
             "name": "test"
         }
     ],

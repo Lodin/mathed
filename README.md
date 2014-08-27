@@ -6,7 +6,7 @@ This is a small math library written in D Programming Language.
 ### Matrix and vector
 1. All actions is checked at compile time. There are no exceptions.
 2. Matrix and vector structure contains only it's data, and nothing additional.
-3. Almost all actions is `nothrow` and `@safe`
+3. Almost all actions is `pure` and `nothrow`.
 
 ### Matirx usage
 1. Creating matrix

@@ -5,7 +5,7 @@
  * $(OL
  *      $(LI All matrix actions is checked at compile time)
  *      $(LI Matrix contains only it's data, and nothing additional)
- *      $(LI Almost all matrix actions is `nothrow` and `@safe`)
+ *      $(LI Almost all matrix actions is `pure` and `nothrow`)
  * )
  * 
  * Usage:
@@ -27,7 +27,8 @@ module mathed.types.matrix;
 private
 {
     import std.traits : isNumeric;
-    import std.conv : to;   
+    import std.conv : to;
+    import std.array : Appender, appender;
 }
 
 alias Matrix!(float, 1, 1) Matrix1f;
@@ -44,26 +45,29 @@ alias Matrix!(int, 4, 4) Matrix4i;
  * Main matrix interface.
  */
 struct Matrix (Type, size_t Lines, size_t Cols)
+    if (Lines > 0 && Cols > 0)
 {
-    alias Matrix!(Type, Lines, Cols) Self;
-
-    /*
-     * Matrix core array.
-     */
-    private  Type[Cols][Lines] _this;
-
-    static @property pure nothrow @safe 
+    private
     {
-        /**
-         * Returns quantity of matrix columns.
-         */
-        auto cols () { return Cols; }
+        alias Matrix!(Type, Lines, Cols) Self;
 
-        /**
-         * Returns quantity of matrix lines.
+        /*
+         * Matrix core array.
          */
-        auto lines () { return Lines; }
+        static if (isNumeric!Type)
+            Type[Lines * Cols] data = mixin (DefaultInit (Lines * Cols));
+        else
+            Type[Lines * Cols] data;
     }
+
+    /// Returns quantity of matrix lines.
+    alias Lines lines;
+
+    /// Returns quantity of matrix columns.
+    alias Cols cols;
+
+    /// Returns type of matrix data
+    alias Type type;
 
     unittest
     {
@@ -81,34 +85,19 @@ struct Matrix (Type, size_t Lines, size_t Cols)
      * Matrix default constructor. It receives a bunch of values in amount
      * of product of matrix lines and columns.
      */
-    nothrow @safe this (Type[Lines * Cols] values...) { set (values); }
-
-    /**
-     * Matrix additional constructor. It receives one static two-dimensional
-     * array that is same to matrix core array. 
-     */
-    nothrow @safe this (Type[Cols][Lines] values) { _this = values; }
+    @trusted this (in Type[Cols * Lines] values...) pure nothrow
+    {
+        set (values);
+    }
 
     /**
      * Sets all matrix values in one action. It receives bunch of values.
      */
-    nothrow @safe void set (Type[Lines * Cols] values...)
+    @trusted void set (in Type[Cols * Lines] values...) pure nothrow
     {
-        size_t index;
-        foreach (i, ref line; _this)
-        {
-            foreach (j, ref col; line)
-            {
-                col = values[index];
-                index++;
-            }
-        }
+        foreach (size_t index, ref element; data)
+            element = values[index];
     }
-
-    /**
-     * Additional `set` method. It receives two-dimensional array.
-     */
-    nothrow @safe void set (Type[Cols][Lines] values) { _this = values; }
 
     ///
     unittest
@@ -121,7 +110,7 @@ struct Matrix (Type, size_t Lines, size_t Cols)
             -3,  1, 0
         );
 
-        // Setting all values at zero.
+        // Setting all values to zero.
         m.set
         (
             0, 0, 0,
@@ -136,7 +125,17 @@ struct Matrix (Type, size_t Lines, size_t Cols)
     /**
      * Stringifies matrix data. 
      */
-    string toString () { return _this.to!string (); }
+    @trusted string toString ()
+    {
+        Appender!string result = appender ("[");
+
+        foreach (size_t index; 0..Lines)
+            result.put (this[index].to!string () ~ (index != Lines - 1 ? ", " : ""));
+
+        result.put ("]");
+
+        return result.data;
+    }
 
     unittest
     {
@@ -152,9 +151,12 @@ struct Matrix (Type, size_t Lines, size_t Cols)
     }
 
     /**
-     * Gives matrix line.
+     * Gets matrix line.
      */
-    nothrow @safe ref Type[Cols] opIndex (size_t line) { return _this[line]; }
+    @trusted ref auto opIndex (size_t line) pure nothrow
+    {
+        return data[Cols * line .. Cols + Cols * line];
+    }
 
     unittest
     {
@@ -169,44 +171,60 @@ struct Matrix (Type, size_t Lines, size_t Cols)
     }
 
     /**
-     * Iterates matrix in turn, excluding line and column numbers. E.g. in
-     * Matrix3x3 iteration, returned number of m[1][2] element will be `5`.
+     * Iterates matrix without returning any element number.
      */
-    int opApply (int delegate (ref size_t, ref Type) foreach_)
+    @trusted int opApply (int delegate (ref Type) foreach_)
     {
         int result;
-
-        size_t index;
-        foreach (size_t i, ref line; _this)
+        
+        foreach (ref element; data)
         {
-            foreach (size_t j, ref col; line)
-            {
-                result = foreach_ (index, col);
-                index++;
-
-                if (result) break;
-            }
+            result = foreach_ (element);
+            if (result) break;
         }
         
         return result;
     }
 
     /**
-     * Another iteration method. It returns line and column number with element.
+     * Iterates matrix by element number. E.g. returned number of m[1][2]
+     * element in Matrix3x3 iteration will be `5`.
      */
-    int opApply (int delegate (ref size_t, ref size_t, ref Type) foreach_)
+    @trusted int opApply (int delegate (ref size_t, ref Type) foreach_)
     {
         int result;
-        foreach (size_t i, ref line; _this)
+
+        foreach (size_t index, ref element; data)
         {
-            foreach (size_t j, ref col; line)
-            {
-                result = foreach_ (i, j, col);
-
-                if (result) break;
-            }
+            result = foreach_ (index, element);
+            if (result) break;
         }
+        
+        return result;
+    }
 
+    /**
+     * Iterates matrix returning line and column number with element.
+     */
+    @trusted int opApply (int delegate (ref size_t, ref size_t, ref Type) foreach_)
+    {
+        int result;
+        
+        size_t line, col;
+        foreach (size_t index, ref element; data)
+        {
+            result = foreach_ (line, col, element);
+            col++;
+
+            if (index == Cols - 1 + Cols * line)
+            {
+                line++;
+                col = 0;
+            }
+
+            if (result) break;
+        }
+        
         return result;
     }
 
@@ -220,7 +238,7 @@ struct Matrix (Type, size_t Lines, size_t Cols)
             -3,  1, 0
         );
 
-        // Let's iterate matrix in turn
+        // Let's iterate matrix by element number
         size_t index;
         foreach (i, ref element; m)
         {
@@ -246,26 +264,44 @@ struct Matrix (Type, size_t Lines, size_t Cols)
         assert (line == 1 && col == 2);
     }
 
+    @trusted auto opAssign (in Self newMatrix) pure nothrow
+    { 
+        foreach (size_t index, ref value; data)
+            value = newMatrix.data[index];
+    }
+
+    /**
+     * Inverses matrix sign
+     */ 
+    @trusted auto opUnary(string op)() pure nothrow
+        if( op == "-" )
+    in { static assert (isNumeric!Type, NotNumericForbidden); }
+    body
+    {
+        return opBinary!"*" (-1);
+    }
+
     /**
      * Processes matrix addition and subtraction.
      */
-    nothrow @safe Self opBinary (string op)(in Self summand)
+    @trusted Self opBinary (string op)(in Self summand) pure nothrow
         if (op == "+" || op == "-")
-    in
-    {
-        static assert (!is(Type == bool),
-                       "Impossible to apply mathematical action"
-                       ~ "to boolean matrix");
-    }
+    in { static assert (isNumeric!Type, NotNumericForbidden); }
     body
     {
         Self newMatrix;
-
-        foreach (i, ref line; newMatrix._this)
-            foreach (j, ref col; line)
-                mixin ("col = _this[i][j] " ~ op ~ " summand._this[i][j];");
-        
+        foreach (size_t index, ref element; newMatrix.data)
+            mixin ("element = data[index] " ~ op ~ " summand.data[index];");
         return newMatrix;
+    }
+
+    /// ditto
+    @trusted void opOpAssign (string op)(in Self summand) pure nothrow
+        if (op == "+" || op == "-")
+    in { static assert (isNumeric!Type, NotNumericForbidden); }
+    body
+    {
+        this = opBinary!op (summand);
     }
 
     unittest
@@ -278,6 +314,7 @@ struct Matrix (Type, size_t Lines, size_t Cols)
         );
 
         auto x = m + m;
+        m += m;
 
         auto equalX = Matrix3i
         (
@@ -287,28 +324,39 @@ struct Matrix (Type, size_t Lines, size_t Cols)
         );
 
         assert (x == equalX);
+        assert (m == equalX);
     }
 
     /**
      * Processes matrix multiplication and division with number.
      */
-    nothrow @safe Self opBinary (string op, T)(in T num)
+    @trusted Self opBinary (string op, T)(in T num) pure nothrow
         if ((op == "*" || op == "/") && isNumeric!T)
-    in
-    {
-        static assert (!is(Type == bool),
-                       "Impossible to apply mathematical action"
-                       ~ "to boolean matrix");
-    }
+    in { static assert (isNumeric!Type, NotNumericForbidden); }
     body
     {
         Self newMatrix;
-        
-        foreach (i, ref line; newMatrix._this)
-            foreach (j, ref col; line)
-                mixin ("col = _this[i][j] " ~ op ~ " num;");
-        
+        foreach (size_t index, ref element; newMatrix.data)
+            mixin ("element = data[index] " ~ op ~ " num;");
         return newMatrix;
+    }
+
+    /// ditto
+    @trusted Self opBinaryRight (string op, T)(in T num) pure nothrow
+        if ((op == "*" || op == "/") && isNumeric!T)
+    in { static assert (isNumeric!Type, NotNumericForbidden); }
+    body
+    {
+        return opBinary!op (num);
+    }
+
+    /// ditto
+    @trusted void opOpAssign (string op, T)(in T num) pure nothrow
+        if ((op == "*" || op == "/") && isNumeric!T)
+        in { static assert (isNumeric!Type, NotNumericForbidden); }
+    body
+    {
+        this = opBinary!op (num);
     }
 
     unittest
@@ -321,6 +369,8 @@ struct Matrix (Type, size_t Lines, size_t Cols)
         );
         
         auto y = m * 5;
+        auto yy = 5 * m;
+        m *= 5;
 
         auto equalY = Matrix3i
         (
@@ -330,33 +380,55 @@ struct Matrix (Type, size_t Lines, size_t Cols)
         );
 
         assert (y == equalY);
+        assert (yy == equalY);
+        assert (m == equalY);
     }
 
     /**
      * Processes matrix multiplication with another matrix.
      */
-    nothrow @safe Matrix!(Type, Lines, T.cols) opBinary (string op, T)(in T factor)
+    @trusted auto opBinary (string op, T)(in T factor) pure nothrow
         if (op == "*" && isMatrix!T)
     in
     {
         static assert (Cols == T.lines);
-        static assert (!is(Type == bool),
-                       "Impossible to apply mathematical action"
-                       ~ "to boolean matrix");
+        static assert (isNumeric!Type, NotNumericForbidden);
     }
     body
     {
         Matrix!(Type, Lines, T.cols) newMatrix;
 
-        foreach (i, ref line; newMatrix._this)
-            foreach (j, ref col; line)
-                foreach (k; 0..Cols)
-                    mixin ("col += _this[i][k] " ~ op ~ " factor._this[k][j];");
-        
+        size_t line, col;
+        foreach (ref element; newMatrix.data)
+        {
+            if (col == T.cols)
+            {
+                line++;
+                col = 0;
+            }
+
+            foreach (k; 0 .. Cols)
+                element += data[Cols * line + k] * factor.data[T.cols * k + col];
+
+            col++;
+        }
+
         return newMatrix;
     }
 
-    ///
+    /// ditto
+    @trusted void opOpAssign (string op, T)(in T factor) pure nothrow
+        if (op == "*" && isMatrix!T)
+    in
+    {
+        static assert (Cols == T.lines);
+        static assert (isNumeric!Type, NotNumericForbidden);
+    }
+    body
+    {
+        this = opBinary!op (factor);
+    }
+
     unittest
     {
         auto m = Matrix!(int, 3, 3)
@@ -386,15 +458,63 @@ struct Matrix (Type, size_t Lines, size_t Cols)
     }
 
     /**
+     * Processes casting matrix to a new type. It should be matrix type too.
+     */
+    @trusted NewType opCast (NewType)() pure nothrow
+        if (isMatrix!NewType && Lines == NewType.lines && Cols == NewType.cols
+            && isNumeric!Type)
+    {
+        NewType newMatrix;
+
+        foreach (size_t index, ref element; newMatrix.data)
+            element = cast(NewType.type) data[index];
+
+        return newMatrix;
+    }
+
+    unittest
+    {
+        auto m = Matrix!(int, 3, 3)
+        (
+             3, -1, 6,
+             2,  1, 5,
+            -3,  1, 0
+        );
+
+        auto n = cast(Matrix!(float, 3, 3)) m;
+        assert (is (n.type == float));
+        assert (isMatrix!(typeof(n)));
+    }
+
+    /**
+     * Casts matrix to a string.
+     */
+    @trusted string opCast (NewType)()
+        if (is (NewType == string))
+    {
+        return toString ();
+    }
+
+    /**
      * Transposes matrix.
      */
-    @property nothrow @safe Matrix!(Type, Cols, Lines) t ()
+    @trusted @property auto t () pure nothrow
     {
         Matrix!(Type, Cols, Lines) newMatrix;
 
-        foreach (size_t i, ref line; newMatrix._this)
-            foreach (size_t j, ref col; line)
-                col = _this[j][i];
+        size_t line, col;
+        foreach (ref element; newMatrix.data)
+        {
+            if (line == Lines)
+            {
+                col++;
+                line = 0;
+            }
+
+            element = data[Cols * line + col];
+
+            line++;
+        }
 
         return newMatrix;
     }
@@ -410,12 +530,84 @@ struct Matrix (Type, size_t Lines, size_t Cols)
 
         assert (m.t.t == m);
     }
+
+    static if (Lines == Cols && isNumeric!Type)
+    {
+        /**
+         * Returns indentity matrix instead of zero.
+         */
+        @trusted static @property Self identity () pure nothrow
+        {
+            Self newMatrix;
+            newMatrix.data = mixin (ConstructIdentity ());
+            return newMatrix;
+        }
+
+        /**
+         * Makes matrix with diagonal consists of received values.
+         */
+        @trusted static Self diag (Type[Lines] values...) pure nothrow
+        {
+            Self newMatrix;
+
+            size_t line, col, index;
+            foreach (ref element; newMatrix.data)
+            {
+                if (col == Cols)
+                {
+                    line++;
+                    col = 0;
+                }
+
+                if (line == col)
+                {
+                    element = values[index];
+                    index++;
+                }
+                else
+                    element = 0;
+
+                col++;
+            }
+
+            return newMatrix;
+        }
+    }
+
+private:
+
+    static if (isNumeric!Type)
+    {
+        @trusted static string ConstructIdentity () pure nothrow
+        {
+            string buffer = "[ ";
+
+            size_t line, col;
+            foreach (size_t index; 0 .. Lines * Cols)
+            {
+                if (col == Cols)
+                {
+                    line++;
+                    col = 0;
+                }
+                
+                if (line == col)
+                    buffer ~= "1, ";
+                else
+                    buffer ~= "0, ";
+                
+                col++;
+            }
+
+            return buffer ~= " ]";
+        }
+    }
 }
 
 /**
  * Tests type to be a matrix.
  */
-pure nothrow @safe template isMatrix (Type)
+pure nothrow @trusted template isMatrix (Type) 
 {
     enum isMatrix = is (typeof (isMatrixImpl (Type.init)));
 
@@ -431,3 +623,16 @@ unittest
     assert (isMatrix!(typeof (v)));
     assert (!isMatrix!(typeof (i)));
 }
+
+package static @trusted string DefaultInit (size_t Size) pure nothrow
+{
+    string buffer = "[ ";
+    foreach (size_t index; 0 .. Size)
+        buffer ~= "0, ";
+    return buffer ~ " ]";
+}
+
+private:
+
+enum NotNumericForbidden = "Impossible to apply mathematical action to "
+    ~ "not-numeric matrix";
