@@ -60,13 +60,13 @@ struct Matrix (Type, size_t Lines, size_t Cols)
             Type[Lines * Cols] data;
     }
 
-    /// Returns quantity of matrix lines.
+    /// Gets quantity of matrix lines.
     alias Lines lines;
 
-    /// Returns quantity of matrix columns.
+    /// Gets quantity of matrix columns.
     alias Cols cols;
 
-    /// Returns type of matrix data
+    /// Gets type of matrix data
     alias Type type;
 
     unittest
@@ -607,9 +607,9 @@ private:
 /**
  * Tests type to be a matrix.
  */
-pure nothrow @trusted template isMatrix (Type) 
+pure nothrow @trusted template isMatrix (Test) 
 {
-    enum isMatrix = is (typeof (isMatrixImpl (Type.init)));
+    enum isMatrix = is (typeof (isMatrixImpl!(Test.type, Test.lines, Test.cols)(Test.init)));
 
     private void isMatrixImpl (Type, size_t Lines, size_t Cols)
                               (Matrix!(Type, Lines, Cols)){}

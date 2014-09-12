@@ -38,7 +38,7 @@
  *      )
  * )
  * 
- * Vector also has VectorType - a string that defines vector orientation:
+ * Vector also has Orientation - a string that defines vector orientation:
  * `horizontal` or `vertical`. It is needed only when vector is converted to
  * matrix and by default is `horizontal`.
  * 
@@ -80,18 +80,18 @@ alias Vector!(int, 3, "xyz") Stereoi;
  * Main vector interface.
  */
 @trusted struct Vector (Type, size_t Size, string Accessors = "", 
-               string VectorType = "horizontal")
+                        string Orientation = "horizontal")
     if (Size > 0)
 {
     static assert (isAcceptableSize!(Accessors, Size),
                    format (INACCEPTABLE_SIZE, CountAccessors (Accessors)));
 
-    static assert (isAcceptableType!VectorType,
-                   format (INACCEPTABLE_TYPE, VectorType));
+    static assert (isAcceptableType!Orientation,
+                   format (INACCEPTABLE_TYPE, Orientation));
 
     private
     {
-        alias Vector!(Type, Size, Accessors) Self;
+        alias Vector!(Type, Size, Accessors, Orientation) Self;
         
         /*
          * Vector core array.
@@ -100,12 +100,18 @@ alias Vector!(int, 3, "xyz") Stereoi;
             Type[Size] data = mixin (DefaultInit (Size));
         else
             Type[Size] data;
+
+        // Gets the `Accessors` string
+        alias Accessors accessors;
+
+        // Gets vector orientation
+        alias Orientation orientation;
     }
 
-    /// Returns vector size (quantity of it's elements).
+    /// Gets vector size (quantity of it's elements).
     alias Size size;
 
-    /// Returns type of vector data
+    /// Gets type of vector data
     alias Type type;
 
     unittest
@@ -369,11 +375,11 @@ alias Vector!(int, 3, "xyz") Stereoi;
 
     /**
      * Converts vector to one-lined or one-columned matrix depending on
-     * VectorType.
+     * Orientation.
      */
     @trusted auto toMatrix () pure nothrow
     {
-        static if (VectorType == "vertical")
+        static if (Orientation == "vertical")
             return Matrix!(Type, Size, 1)(data);
         else
             return Matrix!(Type, 1, Size)(data);
@@ -384,7 +390,7 @@ alias Vector!(int, 3, "xyz") Stereoi;
      */
     @trusted @property auto t () pure nothrow
     {
-        static if (VectorType == "vertical")
+        static if (Orientation == "vertical")
             return Vector!(Type, Size, Accessors, "horizontal")(data);
         else
             return Vector!(Type, Size, Accessors, "vertical")(data);
@@ -401,12 +407,12 @@ alias Vector!(int, 3, "xyz") Stereoi;
 /**
  * Tests type to be a vector.
  */
-pure nothrow @trusted template isVector (Type)
+pure nothrow @trusted template isVector (Test)
 {
-    enum isVector = is (typeof (isVectorImpl (Type.init)));
+    enum isVector = is (typeof (isVectorImpl!(Test.type, Test.size, Test.accessors, Test.orientation)(Test.init)));
 
-    private void isVectorImpl (Type, size_t Size, string Accessors, string VectorType)
-                              (Vector!(Type, Size, Accessors, VectorType)){}
+    private void isVectorImpl (Type, size_t Size, string Accessors, string Orientation)
+                              (Vector!(Type, Size, Accessors, Orientation)){}
 }
 
 unittest
@@ -497,5 +503,5 @@ enum
                             ~ "not-numeric vector",
     INACCEPTABLE_SIZE = "Attribute accessors should be equal to vector size by "
                         ~ "quantity or be empty string, not %s",
-    INACCEPTABLE_TYPE = "VectorType should be `horizontal` or `vertical`, not %s"
+    INACCEPTABLE_TYPE = "Orientation should be `horizontal` or `vertical`, not %s"
 }
