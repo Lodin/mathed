@@ -138,7 +138,8 @@ struct Matrix (size_t Lines, size_t Cols, Type = float)
         Appender!string result = appender ("[");
 
         foreach (size_t index; 0..Lines)
-            result.put (this[index].to!string () ~ (index != Lines - 1 ? ", " : ""));
+            result.put (this[index].to!string ()
+                        ~ (index != Lines - 1 ? ", " : ""));
 
         result.put ("]");
 
@@ -272,10 +273,20 @@ struct Matrix (size_t Lines, size_t Cols, Type = float)
         assert (line == 1 && col == 2);
     }
 
-    auto opAssign (in Self newMatrix) pure nothrow
+    auto opAssign (NewMatrix)(in NewMatrix newMatrix) pure nothrow
+        if (isConvertibleMatrices!(NewMatrix, Self))
     { 
         foreach (size_t index, ref value; data)
-            value = newMatrix.data[index];
+            value = cast(Type) newMatrix.data[index];
+    }
+
+    unittest
+    {
+        auto a = Matrix2i (0, 0, 0, 0);
+        a = Matrix2f (1, 2, 3, 4);
+
+        assert (a[0][1] == 2);
+        assert (is (typeof (a[0][0]) == int));
     }
 
     /**
@@ -292,8 +303,8 @@ struct Matrix (size_t Lines, size_t Cols, Type = float)
     /**
      * Processes matrix addition and subtraction.
      */
-    Self opBinary (string op)(in Self summand) pure nothrow
-        if (op == "+" || op == "-")
+    Self opBinary (string op, Summand)(in Summand summand) pure nothrow
+        if ((op == "+" || op == "-") && isSimilarMatrices!(Summand, Self))
     in { static assert (isNumeric!Type, NOT_NUMERIC_FORBIDDEN); }
     body
     {
@@ -304,8 +315,8 @@ struct Matrix (size_t Lines, size_t Cols, Type = float)
     }
 
     /// ditto
-    void opOpAssign (string op)(in Self summand) pure nothrow
-        if (op == "+" || op == "-")
+    void opOpAssign (string op, Summand)(in Summand summand) pure nothrow
+        if ((op == "+" || op == "-") && isSimilarMatrices!(Summand, Self))
     in { static assert (isNumeric!Type, NOT_NUMERIC_FORBIDDEN); }
     body
     {
@@ -350,8 +361,8 @@ struct Matrix (size_t Lines, size_t Cols, Type = float)
     }
 
     /// ditto
-    Self opBinaryRight (string op, T)(in T num) pure nothrow
-        if ((op == "*" || op == "/") && isNumeric!T)
+    Self opBinaryRight (string op, Number)(in Number num) pure nothrow
+        if ((op == "*" || op == "/") && isNumeric!Number)
     in { static assert (isNumeric!Type, NOT_NUMERIC_FORBIDDEN); }
     body
     {
@@ -359,9 +370,9 @@ struct Matrix (size_t Lines, size_t Cols, Type = float)
     }
 
     /// ditto
-    void opOpAssign (string op, T)(in T num) pure nothrow
-        if ((op == "*" || op == "/") && isNumeric!T)
-        in { static assert (isNumeric!Type, NOT_NUMERIC_FORBIDDEN); }
+    void opOpAssign (string op, Number)(in Number num) pure nothrow
+        if ((op == "*" || op == "/") && isNumeric!Number)
+    in { static assert (isNumeric!Type, NOT_NUMERIC_FORBIDDEN); }
     body
     {
         this = opBinary!op (num);
@@ -395,28 +406,26 @@ struct Matrix (size_t Lines, size_t Cols, Type = float)
     /**
      * Processes matrix multiplication with another matrix.
      */
-    auto opBinary (string op, T)(in T factor) pure nothrow
-        if (op == "*" && isMatrix!T)
-    in
-    {
-        static assert (Cols == T.lines);
-        static assert (isNumeric!Type, NOT_NUMERIC_FORBIDDEN);
-    }
+    auto opBinary (string op, Factor)(in Factor factor) pure nothrow
+        if (op == "*" && isMatrix!Factor && Cols == Factor.lines
+            && is (Factor.type : Type))
+    in { static assert (isNumeric!Type, NOT_NUMERIC_FORBIDDEN); }
     body
     {
-        Matrix!(Lines, T.cols, Type) newMatrix;
+        Matrix!(Lines, Factor.cols, Type) newMatrix;
 
         size_t line, col;
         foreach (ref element; newMatrix.data)
         {
-            if (col == T.cols)
+            if (col == Factor.cols)
             {
                 line++;
                 col = 0;
             }
 
             foreach (k; 0 .. Cols)
-                element += data[Cols * line + k] * factor.data[T.cols * k + col];
+                element += data[Cols * line + k] 
+                           * factor.data[Factor.cols * k + col];
 
             col++;
         }
@@ -425,13 +434,10 @@ struct Matrix (size_t Lines, size_t Cols, Type = float)
     }
 
     /// ditto
-    void opOpAssign (string op, T)(in T factor) pure nothrow
-        if (op == "*" && isMatrix!T)
-    in
-    {
-        static assert (Cols == T.lines);
-        static assert (isNumeric!Type, NOT_NUMERIC_FORBIDDEN);
-    }
+    void opOpAssign (string op, Factor)(in Factor factor) pure nothrow
+        if (op == "*" && isMatrix!Factor && Cols == Factor.lines
+            && is (Factor.type : Type))
+    in { static assert (isNumeric!Type, NOT_NUMERIC_FORBIDDEN); }
     body
     {
         this = opBinary!op (factor);
@@ -466,11 +472,11 @@ struct Matrix (size_t Lines, size_t Cols, Type = float)
     }
 
     /**
-     * Processes casting matrix to a new type. It should be matrix type too.
+     * Casts matrix to a new type. It should be matrix type too, with equal
+     * quantity of lines and cols.
      */
     NewType opCast (NewType)() pure nothrow
-        if (isMatrix!NewType && Lines == NewType.lines && Cols == NewType.cols
-            && isNumeric!Type)
+        if (isConvertibleMatrices!(NewType, Self) && isNumeric!Type)
     {
         NewType newMatrix;
 
@@ -478,6 +484,14 @@ struct Matrix (size_t Lines, size_t Cols, Type = float)
             element = cast(NewType.type) data[index];
 
         return newMatrix;
+    }
+
+    /// ditto
+    Matrix!(Lines, Cols, NewType) castTo (NewType)()
+        if (isConvertibleMatrices!(Matrix!(Lines, Cols, NewType), Self)
+            && isNumeric!Type)
+    {
+        return cast(Matrix!(Lines, Cols, NewType)) this;
     }
 
     unittest
@@ -490,9 +504,16 @@ struct Matrix (size_t Lines, size_t Cols, Type = float)
         );
 
         auto n = cast(Matrix!(3, 3)) m;
+        auto l = m.castTo!double ();
+
         assert (is (n.type == float));
+        assert (is (l.type == double));
+
         assert (is (typeof (n[0][0]) == float));
+        assert (is (typeof (l[0][0]) == double));
+
         assert (isMatrix!n);
+        assert (isMatrix!l);
     }
 
     /**
@@ -640,6 +661,57 @@ unittest
     assert (isMatrix!v);
     assert (!isMatrix!i);
 }
+
+/**
+ * Tests two matrix to have equal quantity of lines and cols, and similar types.
+ * It means that type of testing matrix should be implicity convertable to a 
+ * type of original matrix
+ */
+template isSimilarMatrices (Test, Original)
+    if (isMatrix!Test && isMatrix!Original)
+{
+    enum isSimilarMatrices = is (Test.type : Original.type)
+        && Test.lines == Original.lines && Test.cols == Original.cols;
+}
+
+/// ditto
+template isSimilarMatrices (alias Test, alias Original)
+    if (isMatrix!Test && isMatrix!Original)
+{
+    enum isSimilarMatrices = isSimilarMatrices!(typeof(Test), typeof(Original));
+}
+
+unittest
+{
+    assert (isSimilarMatrices!(Matrix3i, Matrix3f));
+    assert (!isSimilarMatrices!(Matrix3f, Matrix3i));
+}
+
+/**
+ * Tests two matrix to have equal quantity of lines and cols, and mutually
+ * convertable types. It means that type of testing matrix should be implicity
+ * convertable to a type of original matrix, or vice versa.
+ */
+template isConvertibleMatrices (From, To)
+    if (isMatrix!From && isMatrix!To)
+{
+    enum isConvertibleMatrices = From.lines == To.lines && From.cols == To.cols
+        && (is(From.type : To.type) || is(To.type : From.type));
+}
+
+/// ditto
+template isConvertibleMatrices (alias From, alias To)
+    if (isMatrix!From && isMatrix!To)
+{
+    enum isConvertibleMatrices = isConvertibleMatrices (typeof(From), typeof(To));
+}
+
+unittest
+{
+    assert (isConvertibleMatrices!(Matrix3i, Matrix3f));
+    assert (isConvertibleMatrices!(Matrix3f, Matrix3i));
+}
+
 
 package static @trusted string DefaultInit (size_t Size) pure nothrow
 {

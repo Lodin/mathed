@@ -228,10 +228,20 @@ struct Vector (size_t Size, Type = float, string Accessors = "",
     /**
      * Assigns vector to a new variable.
      */
-    auto opAssign (in Self newVector) pure nothrow
+    auto opAssign (NewVector)(in NewVector newVector) pure nothrow
+        if (isConvertibleVectors!(NewVector, Self))
     { 
         foreach (size_t index, ref value; data)
-            value = newVector.data[index];
+            value = cast(Type) newVector.data[index];
+    }
+
+    unittest
+    {
+        auto a = Vector4i (0, 0, 0, 0);
+        a = Vector4f (1, 2, 3, 4);
+        
+        assert (a[1] == 2);
+        assert (is (typeof (a[0]) == int));
     }
 
     /**
@@ -248,8 +258,8 @@ struct Vector (size_t Size, Type = float, string Accessors = "",
     /**
      * Processes vector addition and subtraction.
      */ 
-    Self opBinary (string op)(in Self summand) pure nothrow
-        if (op == "+" || op == "-")
+    Self opBinary (string op, Summand)(in Summand summand) pure nothrow
+        if ((op == "+" || op == "-") && isSimilarVectors!(Summand, Self))
     in { static assert (isNumeric!Type, NOT_NUMERIC_FORBIDDEN); }
     body
     {
@@ -260,8 +270,8 @@ struct Vector (size_t Size, Type = float, string Accessors = "",
     }
 
     /// ditto
-    void opOpAssign (string op)(in Self summand) pure nothrow
-        if (op == "+" || op == "-")
+    void opOpAssign (string op, Summand)(in Summand summand) pure nothrow
+        if ((op == "+" || op == "-") && isSimilarVectors!(Summand, Self))
     in { static assert (isNumeric!Type, NOT_NUMERIC_FORBIDDEN); }
     body
     {
@@ -278,8 +288,8 @@ struct Vector (size_t Size, Type = float, string Accessors = "",
     /**
      * Processes vector multiplication and division with number.
      */
-    Self opBinary (string op, T)(in T num) pure nothrow
-        if ((op == "*" || op == "/") && !isVector!T)
+    Self opBinary (string op, Number)(in Number num) pure nothrow
+        if ((op == "*" || op == "/") && isNumeric!Number)
     in { static assert (isNumeric!Type, NOT_NUMERIC_FORBIDDEN); }
     body
     {
@@ -290,8 +300,8 @@ struct Vector (size_t Size, Type = float, string Accessors = "",
     }
 
     /// ditto
-    Self opBinaryRight (string op, T)(in T num) pure nothrow
-        if ((op == "*" || op == "/") && !isVector!T)
+    Self opBinaryRight (string op, Number)(in Number num) pure nothrow
+        if ((op == "*" || op == "/") && isNumeric!Number)
     in { static assert (isNumeric!Type, NOT_NUMERIC_FORBIDDEN); }
     body
     {
@@ -299,8 +309,8 @@ struct Vector (size_t Size, Type = float, string Accessors = "",
     }
 
     /// ditto
-    void opOpAssign (string op, T)(in T num) pure nothrow
-        if ((op == "*" || op == "/") && !isVector!T)
+    void opOpAssign (string op, Number)(in Number num) pure nothrow
+        if ((op == "*" || op == "/") && isNumeric!Number)
     in { static assert (isNumeric!Type, NOT_NUMERIC_FORBIDDEN); }
     body
     {
@@ -321,8 +331,8 @@ struct Vector (size_t Size, Type = float, string Accessors = "",
      * perpendicular vector, both vectors will be converted to matrix and
      * then processed.
      */
-    auto opBinary (string op, T)(T factor) pure nothrow
-        if (op == "*" && isVector!T)
+    auto opBinary (string op, Factor)(Factor factor) pure nothrow
+        if (op == "*" && isVector!Factor)
     in { static assert (isNumeric!Type, NOT_NUMERIC_FORBIDDEN); }
     body
     {
@@ -352,7 +362,7 @@ struct Vector (size_t Size, Type = float, string Accessors = "",
      * Processes casting vector to a new type.
      */
     NewType opCast (NewType)() pure nothrow
-        if (isVector!NewType && Size == NewType.size && isNumeric!Type)
+        if (isConvertibleVectors!(NewType, Self) && isNumeric!Type)
     {
         NewType newVector;
         
@@ -362,13 +372,27 @@ struct Vector (size_t Size, Type = float, string Accessors = "",
         return newVector;
     }
 
+    Vector!(Size, NewType, Accessors, Orientation) castTo (NewType)()
+        if (isConvertibleVectors!(Vector!(Size, NewType, Accessors, Orientation), Self)
+            && isNumeric!Type)
+    {
+        return cast(Vector!(Size, NewType, Accessors, Orientation)) this;
+    }
+
     unittest
     {
         auto v = Vector!(4, int)(1, 2, 3, 4);
         auto w = cast(Vector!4) v;
+        auto x = v.castTo!double ();
+
         assert (is (w.type == float));
+        assert (is (x.type == double));
+
         assert (is (typeof (w[0]) == float));
+        assert (is (typeof (x[0]) == double));
+
         assert (isVector!w);
+        assert (isVector!x);
     }
 
     /**
@@ -408,7 +432,6 @@ struct Vector (size_t Size, Type = float, string Accessors = "",
         auto v = Vector3i (1, 2, 3);
         assert (v.t.toMatrix ().lines == 3);
     }
-
 }
 
 /**
@@ -430,12 +453,63 @@ template isVector (alias Variable)
     enum isVector = isVector!(typeof (Variable));
 }
 
+///
 unittest
 {
     auto v = Vector3i (1, 2, 3);
     auto i = 3;
     assert (isVector!v);
     assert (!isVector!i);
+}
+
+/**
+ * Tests two vectors to have equal size, and similar types. It means that type
+ * of testing vector should be implicity convertable to a type of original
+ * vector
+ */
+template isSimilarVectors (Test, Original)
+    if (isVector!Test && isVector!Original)
+{
+    enum isSimilarVectors = is (Test.type : Original.type)
+        && Test.size == Original.size;
+}
+
+/// ditto
+template isSimilarVectors (alias Test, alias Original)
+    if (isVector!Test && isVector!Original)
+{
+    enum isSimilarVectors = isSimilarVectors!(typeof(Test), typeof(Original));
+}
+
+unittest
+{
+    assert (isSimilarVectors!(Vector3i, Vector3f));
+    assert (!isSimilarVectors!(Vector3f, Vector3i));
+}
+
+/**
+ * Tests two vectors to have equal size, and mutually convertable types. It
+ * means that type of testing vector should be implicity convertable to a type
+ * of original vector, or vice versa.
+ */
+template isConvertibleVectors (From, To)
+    if (isVector!From && isVector!To)
+{
+    enum isConvertibleVectors = From.size == To.size
+        && (is(From.type : To.type) || is(To.type : From.type));
+}
+
+/// ditto
+template isConvertibleVectors (alias From, alias To)
+    if (isVector!From && isVector!To)
+{
+    enum isConvertibleVectors = isConvertibleVectors (typeof(From), typeof(To));
+}
+
+unittest
+{
+    assert (isConvertibleVectors!(Vector3i, Vector3f));
+    assert (isConvertibleVectors!(Vector3f, Vector3i));
 }
 
 private:
