@@ -3,7 +3,7 @@
 public import
     mathed.types;
 
-version (TestMatrix)
+version (unittest)
 {
     void main () {}
 }

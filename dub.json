@@ -1,21 +1,21 @@
 {
     "name": "mathed",
     "description": "Small math library for D",
-    "copyright": "Copyright © 2014, Vlad Rindevich",
+    "version": "0.2.1",
+    "homepage": "https://github.com/Lodin/mathed",
     "authors": ["Vlad Rindevich"],
-    "importPaths": ["source/"],
+    "copyright": "Copyright © 2014, Vlad Rindevich",
     "license": "BSL-1.0",
     "configurations": [
         {
+            "name": "lib",
             "targetType": "library",
-            "name": "build"
         },
         {
-            "buildOptions": ["unittests"],
+            "name": "unittests",
             "targetType": "executable",
+            "build": ["unittest"],
             "versions": ["TestMatrix"],
-            "name": "test"
         }
     ],
-    "homepage": "https://github.com/Lodin/mathed"
 }

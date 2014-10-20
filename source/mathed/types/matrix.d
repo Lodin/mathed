@@ -81,11 +81,13 @@ struct Matrix (Type, size_t Lines, size_t Cols)
         assert (m.lines == 2);
     }
 
+@trusted:
+
     /**
      * Matrix default constructor. It receives a bunch of values in amount
      * of product of matrix lines and columns.
      */
-    @trusted this (in Type[Cols * Lines] values...) pure nothrow
+    this (in Type[Cols * Lines] values...) pure nothrow
     {
         set (values);
     }
@@ -93,7 +95,7 @@ struct Matrix (Type, size_t Lines, size_t Cols)
     /**
      * Sets all matrix values in one action. It receives bunch of values.
      */
-    @trusted void set (in Type[Cols * Lines] values...) pure nothrow
+    void set (in Type[Cols * Lines] values...) pure nothrow
     {
         foreach (size_t index, ref element; data)
             element = values[index];
@@ -125,7 +127,7 @@ struct Matrix (Type, size_t Lines, size_t Cols)
     /**
      * Stringifies matrix data. 
      */
-    @trusted string toString ()
+    string toString ()
     {
         Appender!string result = appender ("[");
 
@@ -153,7 +155,7 @@ struct Matrix (Type, size_t Lines, size_t Cols)
     /**
      * Gets matrix line.
      */
-    @trusted ref auto opIndex (size_t line) pure nothrow
+    ref auto opIndex (size_t line) pure nothrow
     {
         return data[Cols * line .. Cols + Cols * line];
     }
@@ -173,7 +175,7 @@ struct Matrix (Type, size_t Lines, size_t Cols)
     /**
      * Iterates matrix without returning any element number.
      */
-    @trusted int opApply (int delegate (ref Type) foreach_)
+    int opApply (int delegate (ref Type) foreach_)
     {
         int result;
         
@@ -190,7 +192,7 @@ struct Matrix (Type, size_t Lines, size_t Cols)
      * Iterates matrix by element number. E.g. returned number of m[1][2]
      * element in Matrix3x3 iteration will be `5`.
      */
-    @trusted int opApply (int delegate (ref size_t, ref Type) foreach_)
+    int opApply (int delegate (ref size_t, ref Type) foreach_)
     {
         int result;
 
@@ -206,7 +208,7 @@ struct Matrix (Type, size_t Lines, size_t Cols)
     /**
      * Iterates matrix returning line and column number with element.
      */
-    @trusted int opApply (int delegate (ref size_t, ref size_t, ref Type) foreach_)
+    int opApply (int delegate (ref size_t, ref size_t, ref Type) foreach_)
     {
         int result;
         
@@ -264,7 +266,7 @@ struct Matrix (Type, size_t Lines, size_t Cols)
         assert (line == 1 && col == 2);
     }
 
-    @trusted auto opAssign (in Self newMatrix) pure nothrow
+    auto opAssign (in Self newMatrix) pure nothrow
     { 
         foreach (size_t index, ref value; data)
             value = newMatrix.data[index];
@@ -273,9 +275,9 @@ struct Matrix (Type, size_t Lines, size_t Cols)
     /**
      * Inverses matrix sign
      */ 
-    @trusted auto opUnary(string op)() pure nothrow
+    auto opUnary(string op)() pure nothrow
         if( op == "-" )
-    in { static assert (isNumeric!Type, NotNumericForbidden); }
+    in { static assert (isNumeric!Type, NOT_NUMERIC_FORBIDDEN); }
     body
     {
         return opBinary!"*" (-1);
@@ -284,9 +286,9 @@ struct Matrix (Type, size_t Lines, size_t Cols)
     /**
      * Processes matrix addition and subtraction.
      */
-    @trusted Self opBinary (string op)(in Self summand) pure nothrow
+    Self opBinary (string op)(in Self summand) pure nothrow
         if (op == "+" || op == "-")
-    in { static assert (isNumeric!Type, NotNumericForbidden); }
+    in { static assert (isNumeric!Type, NOT_NUMERIC_FORBIDDEN); }
     body
     {
         Self newMatrix;
@@ -296,9 +298,9 @@ struct Matrix (Type, size_t Lines, size_t Cols)
     }
 
     /// ditto
-    @trusted void opOpAssign (string op)(in Self summand) pure nothrow
+    void opOpAssign (string op)(in Self summand) pure nothrow
         if (op == "+" || op == "-")
-    in { static assert (isNumeric!Type, NotNumericForbidden); }
+    in { static assert (isNumeric!Type, NOT_NUMERIC_FORBIDDEN); }
     body
     {
         this = opBinary!op (summand);
@@ -330,9 +332,9 @@ struct Matrix (Type, size_t Lines, size_t Cols)
     /**
      * Processes matrix multiplication and division with number.
      */
-    @trusted Self opBinary (string op, T)(in T num) pure nothrow
+    Self opBinary (string op, T)(in T num) pure nothrow
         if ((op == "*" || op == "/") && isNumeric!T)
-    in { static assert (isNumeric!Type, NotNumericForbidden); }
+    in { static assert (isNumeric!Type, NOT_NUMERIC_FORBIDDEN); }
     body
     {
         Self newMatrix;
@@ -342,18 +344,18 @@ struct Matrix (Type, size_t Lines, size_t Cols)
     }
 
     /// ditto
-    @trusted Self opBinaryRight (string op, T)(in T num) pure nothrow
+    Self opBinaryRight (string op, T)(in T num) pure nothrow
         if ((op == "*" || op == "/") && isNumeric!T)
-    in { static assert (isNumeric!Type, NotNumericForbidden); }
+    in { static assert (isNumeric!Type, NOT_NUMERIC_FORBIDDEN); }
     body
     {
         return opBinary!op (num);
     }
 
     /// ditto
-    @trusted void opOpAssign (string op, T)(in T num) pure nothrow
+    void opOpAssign (string op, T)(in T num) pure nothrow
         if ((op == "*" || op == "/") && isNumeric!T)
-        in { static assert (isNumeric!Type, NotNumericForbidden); }
+        in { static assert (isNumeric!Type, NOT_NUMERIC_FORBIDDEN); }
     body
     {
         this = opBinary!op (num);
@@ -387,12 +389,12 @@ struct Matrix (Type, size_t Lines, size_t Cols)
     /**
      * Processes matrix multiplication with another matrix.
      */
-    @trusted auto opBinary (string op, T)(in T factor) pure nothrow
+    auto opBinary (string op, T)(in T factor) pure nothrow
         if (op == "*" && isMatrix!T)
     in
     {
         static assert (Cols == T.lines);
-        static assert (isNumeric!Type, NotNumericForbidden);
+        static assert (isNumeric!Type, NOT_NUMERIC_FORBIDDEN);
     }
     body
     {
@@ -417,12 +419,12 @@ struct Matrix (Type, size_t Lines, size_t Cols)
     }
 
     /// ditto
-    @trusted void opOpAssign (string op, T)(in T factor) pure nothrow
+    void opOpAssign (string op, T)(in T factor) pure nothrow
         if (op == "*" && isMatrix!T)
     in
     {
         static assert (Cols == T.lines);
-        static assert (isNumeric!Type, NotNumericForbidden);
+        static assert (isNumeric!Type, NOT_NUMERIC_FORBIDDEN);
     }
     body
     {
@@ -460,7 +462,7 @@ struct Matrix (Type, size_t Lines, size_t Cols)
     /**
      * Processes casting matrix to a new type. It should be matrix type too.
      */
-    @trusted NewType opCast (NewType)() pure nothrow
+    NewType opCast (NewType)() pure nothrow
         if (isMatrix!NewType && Lines == NewType.lines && Cols == NewType.cols
             && isNumeric!Type)
     {
@@ -483,13 +485,13 @@ struct Matrix (Type, size_t Lines, size_t Cols)
 
         auto n = cast(Matrix!(float, 3, 3)) m;
         assert (is (n.type == float));
-        assert (isMatrix!(typeof(n)));
+        assert (isMatrix!n);
     }
 
     /**
      * Casts matrix to a string.
      */
-    @trusted string opCast (NewType)()
+    string opCast (NewType)()
         if (is (NewType == string))
     {
         return toString ();
@@ -498,7 +500,7 @@ struct Matrix (Type, size_t Lines, size_t Cols)
     /**
      * Transposes matrix.
      */
-    @trusted @property auto t () pure nothrow
+    @property auto t () pure nothrow
     {
         Matrix!(Type, Cols, Lines) newMatrix;
 
@@ -607,7 +609,7 @@ private:
 /**
  * Tests type to be a matrix.
  */
-pure nothrow @trusted template isMatrix (Test) 
+template isMatrix (Test) 
 {
     enum isMatrix = is (typeof (isMatrixImpl!(Test.type, Test.lines, Test.cols)(Test.init)));
 
@@ -615,13 +617,21 @@ pure nothrow @trusted template isMatrix (Test)
                               (Matrix!(Type, Lines, Cols)){}
 }
 
+/**
+ * Tests variable to be a matrix.
+ */
+template isMatrix (alias Variable) 
+{
+    enum isMatrix = isMatrix!(typeof (Variable));
+}
+
 ///
 unittest
 {
     auto v = Matrix2i (1, 2, 3, 4);
     auto i = 3;
-    assert (isMatrix!(typeof (v)));
-    assert (!isMatrix!(typeof (i)));
+    assert (isMatrix!v);
+    assert (!isMatrix!i);
 }
 
 package static @trusted string DefaultInit (size_t Size) pure nothrow
@@ -634,5 +644,5 @@ package static @trusted string DefaultInit (size_t Size) pure nothrow
 
 private:
 
-enum NotNumericForbidden = "Impossible to apply mathematical action to "
+enum NOT_NUMERIC_FORBIDDEN = "Impossible to apply mathematical action to "
     ~ "not-numeric matrix";

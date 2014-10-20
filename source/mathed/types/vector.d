@@ -29,9 +29,9 @@
  *      $(LI Multiletter accessor. To create vector with this type you should
  *           create vector like that:
  *           
- *           auto vec = Vector!(int, 2, "col|row")(10, 20);
+ *           auto vec = Vector!(int, 2, "col,row")(10, 20);
  *           
- *           Accessor delimiter in the accessors string should be "|" or ",".
+ *           Accessor delimiter in the accessors string should be ",".
  *           Then you can call vector accessor:
  * 
  *           assert (vec.col == 10);
@@ -79,7 +79,7 @@ alias Vector!(int, 3, "xyz") Stereoi;
 /**
  * Main vector interface.
  */
-@trusted struct Vector (Type, size_t Size, string Accessors = "", 
+struct Vector (Type, size_t Size, string Accessors = "", 
                         string Orientation = "horizontal")
     if (Size > 0)
 {
@@ -120,10 +120,12 @@ alias Vector!(int, 3, "xyz") Stereoi;
         assert (v.size == 3);
     }
 
+@trusted:
+
     /**
      * Vector default constructor. 
      */
-    @trusted this (Type[Size] values...) pure nothrow
+    this (Type[Size] values...) pure nothrow
     {
         set (values);
     }
@@ -146,7 +148,7 @@ alias Vector!(int, 3, "xyz") Stereoi;
     /**
      * Sets all vector values in one action.
      */
-    @trusted void set (Type[Size] values...) pure nothrow
+    void set (Type[Size] values...) pure nothrow
     {
         foreach (size_t index, ref element; data)
             element = values[index];
@@ -166,7 +168,7 @@ alias Vector!(int, 3, "xyz") Stereoi;
     /**
      * Stringifies vector.
      */
-    @trusted string toString () { return data.to!string (); } 
+    string toString () { return data.to!string (); } 
 
     unittest
     {
@@ -178,7 +180,7 @@ alias Vector!(int, 3, "xyz") Stereoi;
     /**
      * Gets vector element.
      */
-    @trusted ref auto opIndex (size_t element) pure nothrow
+    ref auto opIndex (size_t element) pure nothrow
     {
         return data[element];
     }
@@ -192,7 +194,7 @@ alias Vector!(int, 3, "xyz") Stereoi;
     /**
      * Iterates vector.
      */
-    @trusted int opApply (int delegate (ref Type) foreach_)
+    int opApply (int delegate (ref Type) foreach_)
     {
         int result;
         
@@ -206,7 +208,7 @@ alias Vector!(int, 3, "xyz") Stereoi;
     }
 
     /// ditto
-    @trusted int opApply (int delegate (ref size_t, ref Type) foreach_)
+    int opApply (int delegate (ref size_t, ref Type) foreach_)
     {
         int result;
         
@@ -222,7 +224,7 @@ alias Vector!(int, 3, "xyz") Stereoi;
     /**
      * Assigns vector to a new variable.
      */
-    @trusted auto opAssign (in Self newVector) pure nothrow
+    auto opAssign (in Self newVector) pure nothrow
     { 
         foreach (size_t index, ref value; data)
             value = newVector.data[index];
@@ -231,7 +233,7 @@ alias Vector!(int, 3, "xyz") Stereoi;
     /**
      * Inverses vector sign.
      */
-    @trusted auto opUnary(string op)() pure nothrow
+    auto opUnary(string op)() pure nothrow
         if( op == "-" )
     in { static assert (isNumeric!Type, NOT_NUMERIC_FORBIDDEN); }
     body
@@ -242,7 +244,7 @@ alias Vector!(int, 3, "xyz") Stereoi;
     /**
      * Processes vector addition and subtraction.
      */ 
-    @trusted Self opBinary (string op)(in Self summand) pure nothrow
+    Self opBinary (string op)(in Self summand) pure nothrow
         if (op == "+" || op == "-")
     in { static assert (isNumeric!Type, NOT_NUMERIC_FORBIDDEN); }
     body
@@ -254,7 +256,7 @@ alias Vector!(int, 3, "xyz") Stereoi;
     }
 
     /// ditto
-    @trusted void opOpAssign (string op)(in Self summand) pure nothrow
+    void opOpAssign (string op)(in Self summand) pure nothrow
         if (op == "+" || op == "-")
     in { static assert (isNumeric!Type, NOT_NUMERIC_FORBIDDEN); }
     body
@@ -272,7 +274,7 @@ alias Vector!(int, 3, "xyz") Stereoi;
     /**
      * Processes vector multiplication and division with number.
      */
-    @trusted Self opBinary (string op, T)(in T num) pure nothrow
+    Self opBinary (string op, T)(in T num) pure nothrow
         if ((op == "*" || op == "/") && !isVector!T)
     in { static assert (isNumeric!Type, NOT_NUMERIC_FORBIDDEN); }
     body
@@ -284,7 +286,7 @@ alias Vector!(int, 3, "xyz") Stereoi;
     }
 
     /// ditto
-    @trusted Self opBinaryRight (string op, T)(in T num) pure nothrow
+    Self opBinaryRight (string op, T)(in T num) pure nothrow
         if ((op == "*" || op == "/") && !isVector!T)
     in { static assert (isNumeric!Type, NOT_NUMERIC_FORBIDDEN); }
     body
@@ -293,7 +295,7 @@ alias Vector!(int, 3, "xyz") Stereoi;
     }
 
     /// ditto
-    @trusted void opOpAssign (string op, T)(in T num) pure nothrow
+    void opOpAssign (string op, T)(in T num) pure nothrow
         if ((op == "*" || op == "/") && !isVector!T)
     in { static assert (isNumeric!Type, NOT_NUMERIC_FORBIDDEN); }
     body
@@ -315,7 +317,7 @@ alias Vector!(int, 3, "xyz") Stereoi;
      * perpendicular vector, both vectors will be converted to matrix and
      * then processed.
      */
-    @trusted auto opBinary (string op, T)(T factor) pure nothrow
+    auto opBinary (string op, T)(T factor) pure nothrow
         if (op == "*" && isVector!T)
     in { static assert (isNumeric!Type, NOT_NUMERIC_FORBIDDEN); }
     body
@@ -345,7 +347,7 @@ alias Vector!(int, 3, "xyz") Stereoi;
     /**
      * Processes casting vector to a new type.
      */
-    @trusted NewType opCast (NewType)() pure nothrow
+    NewType opCast (NewType)() pure nothrow
         if (isVector!NewType && Size == NewType.size && isNumeric!Type)
     {
         NewType newVector;
@@ -361,13 +363,13 @@ alias Vector!(int, 3, "xyz") Stereoi;
         auto v = Vector!(int, 4)(1, 2, 3, 4);
         auto w = cast(Vector!(float, 4)) v;
         assert (is (w.type == float));
-        assert (isVector!(typeof (w)));
+        assert (isVector!w);
     }
 
     /**
      * Casts vector to a string.
      */
-    @trusted string opCast (NewType)()
+    string opCast (NewType)()
         if (is (NewType == string))
     {
         return toString ();
@@ -377,7 +379,7 @@ alias Vector!(int, 3, "xyz") Stereoi;
      * Converts vector to one-lined or one-columned matrix depending on
      * Orientation.
      */
-    @trusted auto toMatrix () pure nothrow
+    auto toMatrix () pure nothrow
     {
         static if (Orientation == "vertical")
             return Matrix!(Type, Size, 1)(data);
@@ -388,7 +390,7 @@ alias Vector!(int, 3, "xyz") Stereoi;
     /**
      * Transposes vector.
      */
-    @trusted @property auto t () pure nothrow
+    @property auto t () pure nothrow
     {
         static if (Orientation == "vertical")
             return Vector!(Type, Size, Accessors, "horizontal")(data);
@@ -407,7 +409,7 @@ alias Vector!(int, 3, "xyz") Stereoi;
 /**
  * Tests type to be a vector.
  */
-pure nothrow @trusted template isVector (Test)
+template isVector (Test)
 {
     enum isVector = is (typeof (isVectorImpl!(Test.type, Test.size, Test.accessors, Test.orientation)(Test.init)));
 
@@ -415,12 +417,20 @@ pure nothrow @trusted template isVector (Test)
                               (Vector!(Type, Size, Accessors, Orientation)){}
 }
 
+/**
+ * Tests variable to be a vector.
+ */
+template isVector (alias Variable)
+{
+    enum isVector = isVector!(typeof (Variable));
+}
+
 unittest
 {
     auto v = Vector3i (1, 2, 3);
     auto i = 3;
-    assert (isVector!(typeof (v)));
-    assert (!isVector!(typeof (i)));
+    assert (isVector!v);
+    assert (!isVector!i);
 }
 
 private:
@@ -430,15 +440,10 @@ size_t CountAccessors (string Accessors, size_t Size) pure @trusted
 {
     if (Size == 1)
         return Accessors.length == 0 ? 0 : 1;
-    else if (!Accessors.hasSymbol ('|') && !Accessors.hasSymbol (','))
+    else if (!Accessors.hasSymbol (','))
         return Accessors.length;
     else
-    {
-        if (Accessors.hasSymbol ('|'))
-            return Accessors.split ('|').length;
-        else
-            return Accessors.split (',').length;
-    }
+        return Accessors.split (',').length;
 }
 
 // Compile-time test for char existence in the string.
@@ -466,16 +471,14 @@ string AttrAccessor (string Accessors, size_t Size) pure @trusted
 
     if (Size == 1 )
         result ~= format (code, Accessors, 0);
-    else if (Size > 1 && !Accessors.hasSymbol ('|') && !Accessors.hasSymbol (','))
+    else if (Size > 1 && !Accessors.hasSymbol (','))
         foreach (size_t index, accessor; Accessors)
             result ~= format (code, accessor, index);
     else
     {
         string[] AccessorsList;
 
-        if (Accessors.hasSymbol ('|'))
-            AccessorsList = Accessors.split ('|');
-        else if (Accessors.hasSymbol (','))
+        if (Accessors.hasSymbol (','))
             AccessorsList = Accessors.split (',');
 
         foreach (size_t index, accessor; AccessorsList)
