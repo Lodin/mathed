@@ -62,24 +62,28 @@ private
     import std.string : format;
 }
 
-alias Vector!(float, 2) Vector2f;
-alias Vector!(float, 3) Vector3f;
-alias Vector!(float, 4) Vector4f;
+alias Vector!2 Vector2f;
+alias Vector!3 Vector3f;
+alias Vector!4 Vector4f;
 
-alias Vector!(int, 2) Vector2i;
-alias Vector!(int, 3) Vector3i;
-alias Vector!(int, 4) Vector4i;
+alias Vector!(2, int) Vector2i;
+alias Vector!(3, int) Vector3i;
+alias Vector!(4, int) Vector4i;
 
-alias Vector!(float, 2, "xy")  Planef;
-alias Vector!(float, 3, "xyz") Stereof;
+alias Vector!(2, float, "xy")  Planef;
+alias Vector!(3, float, "xyz") Stereof;
 
-alias Vector!(int, 2, "xy")  Planei;
-alias Vector!(int, 3, "xyz") Stereoi;
+alias Vector!(2, int, "xy")  Planei;
+alias Vector!(3, int, "xyz") Stereoi;
+
+deprecated alias Vector (Type, size_t Size, string Accessors = "",
+                         string Orientation = "horizontal") = 
+    Vector!(Size, Type, Accessors, Orientation);
 
 /**
  * Main vector interface.
  */
-struct Vector (Type, size_t Size, string Accessors = "", 
+struct Vector (size_t Size, Type = float, string Accessors = "", 
                         string Orientation = "horizontal")
     if (Size > 0)
 {
@@ -91,7 +95,7 @@ struct Vector (Type, size_t Size, string Accessors = "",
 
     private
     {
-        alias Vector!(Type, Size, Accessors, Orientation) Self;
+        alias Vector!(Size, Type, Accessors, Orientation) Self;
         
         /*
          * Vector core array.
@@ -137,7 +141,7 @@ struct Vector (Type, size_t Size, string Accessors = "",
     unittest
     {
         // Creating a vector with accessors
-        auto v = Vector!(int, 3, "xyz")(1, 2, 3);
+        auto v = Vector!(3, int, "xyz")(1, 2, 3);
 
         // Testing accessor methods.
         assert (v.x == 1);
@@ -328,10 +332,10 @@ struct Vector (Type, size_t Size, string Accessors = "",
     unittest
     {
         auto v = Vector3i (1, 2, 3);
-        auto w = Vector!(int, 3, "", "vertical") (1, 2, 3);
+        auto w = Vector!(3, int, "", "vertical") (1, 2, 3);
         assert (v * w == Matrix1i (14));
 
-        auto v2 = Vector!(int, 3, "", "vertical") (1, 2, 3);
+        auto v2 = Vector!(3, int, "", "vertical") (1, 2, 3);
         auto w2 = Vector3i (1, 2, 3);
 
         auto equalMatrix = Matrix3i
@@ -360,9 +364,10 @@ struct Vector (Type, size_t Size, string Accessors = "",
 
     unittest
     {
-        auto v = Vector!(int, 4)(1, 2, 3, 4);
-        auto w = cast(Vector!(float, 4)) v;
+        auto v = Vector!(4, int)(1, 2, 3, 4);
+        auto w = cast(Vector!4) v;
         assert (is (w.type == float));
+        assert (is (typeof (w[0]) == float));
         assert (isVector!w);
     }
 
@@ -382,9 +387,9 @@ struct Vector (Type, size_t Size, string Accessors = "",
     auto toMatrix () pure nothrow
     {
         static if (Orientation == "vertical")
-            return Matrix!(Type, Size, 1)(data);
+            return Matrix!(Size, 1, Type)(data);
         else
-            return Matrix!(Type, 1, Size)(data);
+            return Matrix!(1, Size, Type)(data);
     }
 
     /**
@@ -393,9 +398,9 @@ struct Vector (Type, size_t Size, string Accessors = "",
     @property auto t () pure nothrow
     {
         static if (Orientation == "vertical")
-            return Vector!(Type, Size, Accessors, "horizontal")(data);
+            return Vector!(Size, Type, Accessors, "horizontal")(data);
         else
-            return Vector!(Type, Size, Accessors, "vertical")(data);
+            return Vector!(Size, Type, Accessors, "vertical")(data);
     }
 
     unittest
@@ -411,10 +416,10 @@ struct Vector (Type, size_t Size, string Accessors = "",
  */
 template isVector (Test)
 {
-    enum isVector = is (typeof (isVectorImpl!(Test.type, Test.size, Test.accessors, Test.orientation)(Test.init)));
+    enum isVector = is (typeof (isVectorImpl!(Test.size, Test.type, Test.accessors, Test.orientation)(Test.init)));
 
-    private void isVectorImpl (Type, size_t Size, string Accessors, string Orientation)
-                              (Vector!(Type, Size, Accessors, Orientation)){}
+    private void isVectorImpl (size_t Size, Type, string Accessors, string Orientation)
+                              (Vector!(Size, Type, Accessors, Orientation)){}
 }
 
 /**

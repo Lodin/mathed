@@ -1,7 +1,7 @@
 {
     "name": "mathed",
     "description": "Small math library for D",
-    "version": "0.2.1",
+    "version": "0.3.0",
     "homepage": "https://github.com/Lodin/mathed",
     "authors": ["Vlad Rindevich"],
     "copyright": "Copyright © 2014, Vlad Rindevich",

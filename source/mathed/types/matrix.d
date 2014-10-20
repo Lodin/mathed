@@ -31,25 +31,28 @@ private
     import std.array : Appender, appender;
 }
 
-alias Matrix!(float, 1, 1) Matrix1f;
-alias Matrix!(float, 2, 2) Matrix2f;
-alias Matrix!(float, 3, 3) Matrix3f;
-alias Matrix!(float, 4, 4) Matrix4f;
+alias Matrix!(1, 1) Matrix1f;
+alias Matrix!(2, 2) Matrix2f;
+alias Matrix!(3, 3) Matrix3f;
+alias Matrix!(4, 4) Matrix4f;
 
-alias Matrix!(int, 1, 1) Matrix1i;
-alias Matrix!(int, 2, 2) Matrix2i;
-alias Matrix!(int, 3, 3) Matrix3i;
-alias Matrix!(int, 4, 4) Matrix4i;
+alias Matrix!(1, 1, int) Matrix1i;
+alias Matrix!(2, 2, int) Matrix2i;
+alias Matrix!(3, 3, int) Matrix3i;
+alias Matrix!(4, 4, int) Matrix4i;
+
+deprecated alias Matrix (Type, size_t Lines, size_t Cols) = 
+    Matrix!(Lines, Cols, Type);
 
 /**
  * Main matrix interface.
  */
-struct Matrix (Type, size_t Lines, size_t Cols)
+struct Matrix (size_t Lines, size_t Cols, Type = float)
     if (Lines > 0 && Cols > 0)
 {
     private
     {
-        alias Matrix!(Type, Lines, Cols) Self;
+        alias Matrix!(Lines, Cols, Type) Self;
 
         /*
          * Matrix core array.
@@ -71,7 +74,7 @@ struct Matrix (Type, size_t Lines, size_t Cols)
 
     unittest
     {
-        auto m = Matrix!(int, 2, 3)
+        auto m = Matrix!(2, 3, int)
         (
              3, -1, 6,
              2,  1, 5,
@@ -105,12 +108,15 @@ struct Matrix (Type, size_t Lines, size_t Cols)
     unittest
     {
         // Creating matrix
-        auto m = Matrix!(int, 3, 3)
+        auto m = Matrix3i
         (
              3, -1, 6,
              2,  1, 5,
             -3,  1, 0
         );
+
+        // Testing some value to be the same as added
+        assert (m[2][0] == -3);
 
         // Setting all values to zero.
         m.set
@@ -398,7 +404,7 @@ struct Matrix (Type, size_t Lines, size_t Cols)
     }
     body
     {
-        Matrix!(Type, Lines, T.cols) newMatrix;
+        Matrix!(Lines, T.cols, Type) newMatrix;
 
         size_t line, col;
         foreach (ref element; newMatrix.data)
@@ -433,14 +439,14 @@ struct Matrix (Type, size_t Lines, size_t Cols)
 
     unittest
     {
-        auto m = Matrix!(int, 3, 3)
+        auto m = Matrix!(3, 3, int)
         (
              3, -1, 6,
              2,  1, 5,
             -3,  1, 0
         );
         
-        auto n = Matrix!(int, 3, 2)
+        auto n = Matrix!(3, 2, int)
         (
             3, 4,
             1, 0,
@@ -449,7 +455,7 @@ struct Matrix (Type, size_t Lines, size_t Cols)
         
         auto z = m * n;
 
-        auto equalZ = Matrix!(int, 3, 2)
+        auto equalZ = Matrix!(3, 2, int)
         (
             38,  24,
             32,  18,
@@ -476,15 +482,16 @@ struct Matrix (Type, size_t Lines, size_t Cols)
 
     unittest
     {
-        auto m = Matrix!(int, 3, 3)
+        auto m = Matrix!(3, 3, int)
         (
              3, -1, 6,
              2,  1, 5,
             -3,  1, 0
         );
 
-        auto n = cast(Matrix!(float, 3, 3)) m;
+        auto n = cast(Matrix!(3, 3)) m;
         assert (is (n.type == float));
+        assert (is (typeof (n[0][0]) == float));
         assert (isMatrix!n);
     }
 
@@ -502,7 +509,7 @@ struct Matrix (Type, size_t Lines, size_t Cols)
      */
     @property auto t () pure nothrow
     {
-        Matrix!(Type, Cols, Lines) newMatrix;
+        Matrix!(Cols, Lines, Type) newMatrix;
 
         size_t line, col;
         foreach (ref element; newMatrix.data)
@@ -523,7 +530,7 @@ struct Matrix (Type, size_t Lines, size_t Cols)
 
     unittest
     {
-        auto m = Matrix!(int, 3, 3)
+        auto m = Matrix3i
         (
              3, -1, 6,
              2,  1, 5,
@@ -611,10 +618,10 @@ private:
  */
 template isMatrix (Test) 
 {
-    enum isMatrix = is (typeof (isMatrixImpl!(Test.type, Test.lines, Test.cols)(Test.init)));
+    enum isMatrix = is (typeof (isMatrixImpl!(Test.lines, Test.cols, Test.type)(Test.init)));
 
-    private void isMatrixImpl (Type, size_t Lines, size_t Cols)
-                              (Matrix!(Type, Lines, Cols)){}
+    private void isMatrixImpl (size_t Lines, size_t Cols, Type)
+                              (Matrix!(Lines, Cols, Type)){}
 }
 
 /**
