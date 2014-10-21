@@ -24,8 +24,7 @@
  */
 module mathed.types.matrix;
 
-public import mathed.utils.traits : isMatrix, isSimilarMatrices,
-    isConvertibleMatrices;
+public import mathed.utils.traits : isMatrix;
 
 private
 {
@@ -273,22 +272,6 @@ struct Matrix (size_t Lines, size_t Cols, Type = float)
         assert (line == 1 && col == 2);
     }
 
-    auto opAssign (NewMatrix)(in NewMatrix newMatrix) pure nothrow
-        if (isConvertibleMatrices!(NewMatrix, Self))
-    { 
-        foreach (size_t index, ref value; data)
-            value = cast(Type) newMatrix.data[index];
-    }
-
-    unittest
-    {
-        auto a = Matrix2i (0, 0, 0, 0);
-        a = Matrix2f (1, 2, 3, 4);
-
-        assert (a[0][1] == 2);
-        assert (is (typeof (a[0][0]) == int));
-    }
-
     /**
      * Inverses matrix sign
      */ 
@@ -303,20 +286,20 @@ struct Matrix (size_t Lines, size_t Cols, Type = float)
     /**
      * Processes matrix addition and subtraction.
      */
-    Self opBinary (string op, Summand)(in Summand summand) pure nothrow
-        if ((op == "+" || op == "-") && isSimilarMatrices!(Summand, Self))
+    Self opBinary (string op, SumType)(in Matrix!(Lines, Cols, SumType) summand) pure nothrow
+        if ((op == "+" || op == "-") && is (SumType : Type))
     in { static assert (isNumeric!Type, NOT_NUMERIC_FORBIDDEN); }
     body
     {
         Self newMatrix;
         foreach (size_t index, ref element; newMatrix.data)
-            mixin ("element = data[index] " ~ op ~ " summand.data[index];");
+            mixin ("element = data[index] " ~ op ~ " cast(Type) summand.data[index];");
         return newMatrix;
     }
 
     /// ditto
-    void opOpAssign (string op, Summand)(in Summand summand) pure nothrow
-        if ((op == "+" || op == "-") && isSimilarMatrices!(Summand, Self))
+    void opOpAssign (string op, SumType)(in Matrix!(Lines, Cols, SumType) summand) pure nothrow
+        if ((op == "+" || op == "-") && is (SumType : Type))
     in { static assert (isNumeric!Type, NOT_NUMERIC_FORBIDDEN); }
     body
     {
@@ -349,8 +332,8 @@ struct Matrix (size_t Lines, size_t Cols, Type = float)
     /**
      * Processes matrix multiplication and division with number.
      */
-    Self opBinary (string op, T)(in T num) pure nothrow
-        if ((op == "*" || op == "/") && isNumeric!T)
+    Self opBinary (string op, Number)(in Number num) pure nothrow
+        if ((op == "*" || op == "/") && isNumeric!Number)
     in { static assert (isNumeric!Type, NOT_NUMERIC_FORBIDDEN); }
     body
     {
@@ -476,7 +459,11 @@ struct Matrix (size_t Lines, size_t Cols, Type = float)
      * quantity of lines and cols.
      */
     NewType opCast (NewType)() pure nothrow
-        if (isConvertibleMatrices!(NewType, Self) && isNumeric!Type)
+        if (isMatrix!NewType && NewType.lines == Lines
+            && NewType.cols == Cols && (is (NewType.type : Type)
+                                    || is (Type : NewType.type)))
+    in { static assert (isNumeric!Type, NOT_NUMERIC_FORBIDDEN); }
+    body
     {
         NewType newMatrix;
 
@@ -488,8 +475,9 @@ struct Matrix (size_t Lines, size_t Cols, Type = float)
 
     /// ditto
     Matrix!(Lines, Cols, NewType) castTo (NewType)()
-        if (isConvertibleMatrices!(Matrix!(Lines, Cols, NewType), Self)
-            && isNumeric!Type)
+        if (is (NewType : Type) || is (Type : NewType))
+    in { static assert (isNumeric!Type, NOT_NUMERIC_FORBIDDEN); }
+    body
     {
         return cast(Matrix!(Lines, Cols, NewType)) this;
     }

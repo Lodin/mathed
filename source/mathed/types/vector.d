@@ -53,8 +53,7 @@
  */
 module mathed.types.vector;
 
-public import mathed.utils.traits : isVector, isSimilarVectors,
-    isConvertibleVectors;
+public import mathed.utils.traits : isVector;
 
 private 
 {
@@ -226,25 +225,6 @@ struct Vector (size_t Size, Type = float, string Accessors = "",
     }
 
     /**
-     * Assigns vector to a new variable.
-     */
-    auto opAssign (NewVector)(in NewVector newVector) pure nothrow
-        if (isConvertibleVectors!(NewVector, Self))
-    { 
-        foreach (size_t index, ref value; data)
-            value = cast(Type) newVector.data[index];
-    }
-
-    unittest
-    {
-        auto a = Vector4i (0, 0, 0, 0);
-        a = Vector4f (1, 2, 3, 4);
-        
-        assert (a[1] == 2);
-        assert (is (typeof (a[0]) == int));
-    }
-
-    /**
      * Inverses vector sign.
      */
     auto opUnary(string op)() pure nothrow
@@ -258,8 +238,9 @@ struct Vector (size_t Size, Type = float, string Accessors = "",
     /**
      * Processes vector addition and subtraction.
      */ 
-    Self opBinary (string op, Summand)(in Summand summand) pure nothrow
-        if ((op == "+" || op == "-") && isSimilarVectors!(Summand, Self))
+    Self opBinary (string op, SumType, alias string SumAccessors)
+                  (in Vector!(Size, SumType, SumAccessors, Orientation) summand) pure nothrow
+        if ((op == "+" || op == "-") && is (SumType : Type))
     in { static assert (isNumeric!Type, NOT_NUMERIC_FORBIDDEN); }
     body
     {
@@ -270,8 +251,9 @@ struct Vector (size_t Size, Type = float, string Accessors = "",
     }
 
     /// ditto
-    void opOpAssign (string op, Summand)(in Summand summand) pure nothrow
-        if ((op == "+" || op == "-") && isSimilarVectors!(Summand, Self))
+    void opOpAssign (string op, SumType, alias string SumAccessors)
+                    (in Vector!(Size, SumType, SumAccessors, Orientation) summand) pure nothrow
+        if ((op == "+" || op == "-") && is (SumType : Type))
     in { static assert (isNumeric!Type, NOT_NUMERIC_FORBIDDEN); }
     body
     {
@@ -359,10 +341,14 @@ struct Vector (size_t Size, Type = float, string Accessors = "",
     }
 
     /**
-     * Processes casting vector to a new type.
+     * Processes casting current vector to a new type of vector. Parametres that
+     * can be cange are: vector type, accessors and orientation.
      */
     NewType opCast (NewType)() pure nothrow
-        if (isConvertibleVectors!(NewType, Self) && isNumeric!Type)
+        if (isVector!NewType && NewType.size == Size
+            && (is (NewType.type : Type) || is (Type : NewType.type)))
+    in { static assert (isNumeric!Type, NOT_NUMERIC_FORBIDDEN); }
+    body
     {
         NewType newVector;
         
@@ -372,11 +358,16 @@ struct Vector (size_t Size, Type = float, string Accessors = "",
         return newVector;
     }
 
-    Vector!(Size, NewType, Accessors, Orientation) castTo (NewType)()
-        if (isConvertibleVectors!(Vector!(Size, NewType, Accessors, Orientation), Self)
-            && isNumeric!Type)
+    /// ditto
+    Vector!(Size, NewType, NewAccessors, NewOrientation)
+    castTo (NewType, 
+            string NewAccessors = Accessors,
+            string NewOrientation = Orientation)()
+        if (is (NewType : Type) || is (Type : NewType))
+    in { static assert (isNumeric!Type, NOT_NUMERIC_FORBIDDEN); }
+    body
     {
-        return cast(Vector!(Size, NewType, Accessors, Orientation)) this;
+        return cast(Vector!(Size, NewType, NewAccessors, NewOrientation)) this;
     }
 
     unittest
