@@ -11,19 +11,19 @@ This is a small math library written in D Programming Language.
 ### Matirx usage
 1. Creating matrix
 2. Matrix can be:
-  1. added: `m + m`.
-  2. subtracted: `m - m`.
-  3. multiplied by number: `m * 2`.
-  4. divided by number: `m / 2`.
-  5. multiplied by another matrix: `m * m`.
-  6. transposed: `m.t`.
-  7. iterated by element number:
-  8. iterated by line and column numbers:
-  9. set in one action:
+  - added: `m + m`.
+  - subtracted: `m - m`.
+  - multiplied by number: `m * 2`.
+  - divided by number: `m / 2`.
+  - multiplied by another matrix: `m * m`.
+  - transposed: `m.t`.
+  - iterated by element number:
+  - iterated by line and column numbers:
+  - set in one action:
 3. If you need to check type of some variable to be a matrix, use `isMatrix`
   ```d
     // Creating matrix
-    auto m = Matrix!(int, 3, 3)
+    auto m = Matrix!(3, 3, int)
     (
        3, -1, 6,
        2,  1, 5,
@@ -52,37 +52,38 @@ This is a small math library written in D Programming Language.
     );
     
     // Type checking
-    bool check = isMatrix!(typeof (m));
+    assert (isMatrix!m);
   ```
+  
 ### Vector usage
 1. Vector can have accessor - a named property method returning one of vector 
 element. Accessor can be two types:
-  1. One-letter accessor:
-  2. Multiletter accessor. Accessor delimiter in the accessors string should 
-  be `|` or `,`.
+  - One-letter accessor:
+  - Multiletter accessor. Accessor delimiter in the accessors string should 
+  be `,`.
 2. Vector has the same actions as matrix, with some differences:
-  1. Vector could not be iterated by line and column numbers (`#8`).
-  2. Vector can be converted to matrix. Matrix type (one-lined or one-columned)
+  - Vector could not be iterated by line and column numbers.
+  - Vector can be converted to matrix. Matrix type (one-lined or one-columned)
   depends on VectorType (`horizontal` and `vertical`). By default all vectors 
   are `horizontal`.
-3. If you need to check type of some variable to be a vector, use `isVector`.
+3. If you need to check type or variable to be a vector, use `isVector`.
   ```d
     // Creating simple vector
-    auto vec = Vector!(int, 2)(10, 20);
-    assert (vec[0] == 10);
+    auto v = Vector!(2, int)(10, 20);
+    assert (v[0] == 10);
   
     // Vector accessor (one-letter)
-    auto vec = Vector!(int, 2, "xy")(10, 20);
-    assert (vec.x == 10); 
+    auto v = Vector!(2, int, "xy")(10, 20);
+    assert (v.x == 10); 
     
     // Vector accessor (multiletter)
-    auto vec = Vector!(int, 2, "col|row")(10, 20);
-    assert (vec.col == 10);
+    auto v = Vector!(2, int, "col,row")(10, 20);
+    assert (v.col == 10);
     
-    // Convertion vector to matrix
-    auto vec = Vector!(int, 2, "col|row")(10, 20);
-    vec.toMatrix ();
-    assert (isMatrix!(typeof (vec)));
+    // Conversion vector to matrix
+    auto v = Vector!(2, int, "col,row")(10, 20);
+    auto m = v.toMatrix ();
+    assert (isMatrix!m);
   ```
 
 ### Current version
