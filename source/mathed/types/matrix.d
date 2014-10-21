@@ -24,6 +24,9 @@
  */
 module mathed.types.matrix;
 
+public import mathed.utils.traits : isMatrix, isSimilarMatrices,
+    isConvertibleMatrices;
+
 private
 {
     import std.traits : isNumeric;
@@ -40,9 +43,6 @@ alias Matrix!(1, 1, int) Matrix1i;
 alias Matrix!(2, 2, int) Matrix2i;
 alias Matrix!(3, 3, int) Matrix3i;
 alias Matrix!(4, 4, int) Matrix4i;
-
-deprecated alias Matrix (Type, size_t Lines, size_t Cols) = 
-    Matrix!(Lines, Cols, Type);
 
 /**
  * Main matrix interface.
@@ -633,85 +633,6 @@ private:
         }
     }
 }
-
-/**
- * Tests type to be a matrix.
- */
-template isMatrix (Test) 
-{
-    enum isMatrix = is (typeof (isMatrixImpl!(Test.lines, Test.cols, Test.type)(Test.init)));
-
-    private void isMatrixImpl (size_t Lines, size_t Cols, Type)
-                              (Matrix!(Lines, Cols, Type)){}
-}
-
-/**
- * Tests variable to be a matrix.
- */
-template isMatrix (alias Variable) 
-{
-    enum isMatrix = isMatrix!(typeof (Variable));
-}
-
-///
-unittest
-{
-    auto v = Matrix2i (1, 2, 3, 4);
-    auto i = 3;
-    assert (isMatrix!v);
-    assert (!isMatrix!i);
-}
-
-/**
- * Tests two matrix to have equal quantity of lines and cols, and similar types.
- * It means that type of testing matrix should be implicity convertable to a 
- * type of original matrix
- */
-template isSimilarMatrices (Test, Original)
-    if (isMatrix!Test && isMatrix!Original)
-{
-    enum isSimilarMatrices = is (Test.type : Original.type)
-        && Test.lines == Original.lines && Test.cols == Original.cols;
-}
-
-/// ditto
-template isSimilarMatrices (alias Test, alias Original)
-    if (isMatrix!Test && isMatrix!Original)
-{
-    enum isSimilarMatrices = isSimilarMatrices!(typeof(Test), typeof(Original));
-}
-
-unittest
-{
-    assert (isSimilarMatrices!(Matrix3i, Matrix3f));
-    assert (!isSimilarMatrices!(Matrix3f, Matrix3i));
-}
-
-/**
- * Tests two matrix to have equal quantity of lines and cols, and mutually
- * convertable types. It means that type of testing matrix should be implicity
- * convertable to a type of original matrix, or vice versa.
- */
-template isConvertibleMatrices (From, To)
-    if (isMatrix!From && isMatrix!To)
-{
-    enum isConvertibleMatrices = From.lines == To.lines && From.cols == To.cols
-        && (is(From.type : To.type) || is(To.type : From.type));
-}
-
-/// ditto
-template isConvertibleMatrices (alias From, alias To)
-    if (isMatrix!From && isMatrix!To)
-{
-    enum isConvertibleMatrices = isConvertibleMatrices (typeof(From), typeof(To));
-}
-
-unittest
-{
-    assert (isConvertibleMatrices!(Matrix3i, Matrix3f));
-    assert (isConvertibleMatrices!(Matrix3f, Matrix3i));
-}
-
 
 package static @trusted string DefaultInit (size_t Size) pure nothrow
 {

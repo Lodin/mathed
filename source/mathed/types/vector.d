@@ -53,9 +53,13 @@
  */
 module mathed.types.vector;
 
+public import mathed.utils.traits : isVector, isSimilarVectors,
+    isConvertibleVectors;
+
 private 
 {
     import mathed.types.matrix : Matrix, DefaultInit, isMatrix, Matrix1i, Matrix3i;
+
     import std.traits : isNumeric;
     import std.array : appender, split;
     import std.conv : to;
@@ -75,10 +79,6 @@ alias Vector!(3, float, "xyz") Stereof;
 
 alias Vector!(2, int, "xy")  Planei;
 alias Vector!(3, int, "xyz") Stereoi;
-
-deprecated alias Vector (Type, size_t Size, string Accessors = "",
-                         string Orientation = "horizontal") = 
-    Vector!(Size, Type, Accessors, Orientation);
 
 /**
  * Main vector interface.
@@ -432,84 +432,6 @@ struct Vector (size_t Size, Type = float, string Accessors = "",
         auto v = Vector3i (1, 2, 3);
         assert (v.t.toMatrix ().lines == 3);
     }
-}
-
-/**
- * Tests type to be a vector.
- */
-template isVector (Test)
-{
-    enum isVector = is (typeof (isVectorImpl!(Test.size, Test.type, Test.accessors, Test.orientation)(Test.init)));
-
-    private void isVectorImpl (size_t Size, Type, string Accessors, string Orientation)
-                              (Vector!(Size, Type, Accessors, Orientation)){}
-}
-
-/**
- * Tests variable to be a vector.
- */
-template isVector (alias Variable)
-{
-    enum isVector = isVector!(typeof (Variable));
-}
-
-///
-unittest
-{
-    auto v = Vector3i (1, 2, 3);
-    auto i = 3;
-    assert (isVector!v);
-    assert (!isVector!i);
-}
-
-/**
- * Tests two vectors to have equal size, and similar types. It means that type
- * of testing vector should be implicity convertable to a type of original
- * vector
- */
-template isSimilarVectors (Test, Original)
-    if (isVector!Test && isVector!Original)
-{
-    enum isSimilarVectors = is (Test.type : Original.type)
-        && Test.size == Original.size;
-}
-
-/// ditto
-template isSimilarVectors (alias Test, alias Original)
-    if (isVector!Test && isVector!Original)
-{
-    enum isSimilarVectors = isSimilarVectors!(typeof(Test), typeof(Original));
-}
-
-unittest
-{
-    assert (isSimilarVectors!(Vector3i, Vector3f));
-    assert (!isSimilarVectors!(Vector3f, Vector3i));
-}
-
-/**
- * Tests two vectors to have equal size, and mutually convertable types. It
- * means that type of testing vector should be implicity convertable to a type
- * of original vector, or vice versa.
- */
-template isConvertibleVectors (From, To)
-    if (isVector!From && isVector!To)
-{
-    enum isConvertibleVectors = From.size == To.size
-        && (is(From.type : To.type) || is(To.type : From.type));
-}
-
-/// ditto
-template isConvertibleVectors (alias From, alias To)
-    if (isVector!From && isVector!To)
-{
-    enum isConvertibleVectors = isConvertibleVectors (typeof(From), typeof(To));
-}
-
-unittest
-{
-    assert (isConvertibleVectors!(Vector3i, Vector3f));
-    assert (isConvertibleVectors!(Vector3f, Vector3i));
 }
 
 private:
